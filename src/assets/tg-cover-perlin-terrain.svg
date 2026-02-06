@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Terrain cross-section layers -->
+  <!-- Water -->
+  <rect x="0" y="230" width="800" height="40" fill="#284fa0" opacity="0.3"/>
+  <!-- Terrain silhouette -->
+  <path d="M0,270 C50,250 100,240 150,260 C200,280 220,230 280,200 C320,180 360,190 400,170 C440,150 480,160 520,140 C560,120 600,130 640,150 C680,170 720,160 760,180 L800,190 L800,400 L0,400 Z" fill="#326432" opacity="0.4"/>
+  <path d="M0,290 C80,270 140,260 200,280 C260,300 300,250 360,230 C400,220 440,235 480,210 C520,190 560,200 620,185 C660,175 720,195 780,210 L800,220 L800,400 L0,400 Z" fill="#326432" opacity="0.6"/>
+  <!-- Snow caps -->
+  <path d="M510,140 C525,135 535,133 545,138" fill="none" stroke="#dce1e6" stroke-width="2" opacity="0.5"/>
+  <path d="M390,170 C400,165 410,167 415,172" fill="none" stroke="#dce1e6" stroke-width="2" opacity="0.4"/>
+  <!-- Sand/beach line -->
+  <path d="M0,300 C100,295 200,310 300,300 C400,290 500,305 600,295 C700,285 750,300 800,295" fill="none" stroke="#c2b280" stroke-width="1.5" opacity="0.3"/>
+  <!-- Water ripples -->
+  <line x1="50" y1="245" x2="120" y2="245" stroke="#4080c0" stroke-width="0.5" opacity="0.4"/>
+  <line x1="200" y1="250" x2="280" y2="250" stroke="#4080c0" stroke-width="0.5" opacity="0.3"/>
+  <line x1="650" y1="242" x2="740" y2="242" stroke="#4080c0" stroke-width="0.5" opacity="0.4"/>
+  <!-- Title -->
+  <text x="400" y="340" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">perlin terrain</text>
+  <text x="400" y="366" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">один алгоритм шума. бесконечные миры.</text>
+  <text x="400" y="390" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal/lab</text>
+</svg>

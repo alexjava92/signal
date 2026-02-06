@@ -1,0 +1,387 @@
+---
+layout: base.njk
+title: "Perlin Terrain"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Perlin Terrain<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Шум Перлина генерирует высотную карту. Вода, песок, трава, камень, снег — пять слоёв, один алгоритм.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <canvas id="canvas" width="800" height="600"></canvas>
+  <div class="lab-info">
+    <span id="info-coords" class="info-tag">наведите на карту</span>
+    <span id="info-height" class="info-tag"></span>
+    <span id="info-biome" class="info-tag"></span>
+  </div>
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>масштаб: <span id="v-scale">40</span></label>
+      <input type="range" id="scale" min="10" max="120" value="40" step="5">
+    </div>
+    <div class="control-group">
+      <label>октавы: <span id="v-octaves">6</span></label>
+      <input type="range" id="octaves" min="1" max="8" value="6" step="1">
+    </div>
+    <div class="control-group">
+      <label>persistence: <span id="v-persist">0.5</span></label>
+      <input type="range" id="persist" min="2" max="8" value="5" step="1">
+    </div>
+    <div class="control-group">
+      <label>уровень воды: <span id="v-water">0.35</span></label>
+      <input type="range" id="water" min="0" max="60" value="35" step="5">
+    </div>
+    <div class="control-group">
+      <label>палитра:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-palette="terrain">земля</button>
+        <button class="preset-btn" data-palette="alien">чужой мир</button>
+        <button class="preset-btn" data-palette="thermal">тепловая</button>
+        <button class="preset-btn" data-palette="grayscale">высота</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <button id="btn-regen" class="action-btn">новый мир</button>
+      <button id="btn-animate" class="action-btn">анимация</button>
+      <button id="btn-save" class="action-btn">сохранить PNG</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .lab-container { margin-top: 24px; }
+  #canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: crosshair;
+  }
+  .lab-info {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    min-height: 24px;
+  }
+  .info-tag {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .lab-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+  }
+  .control-group label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .preset-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(123,140,222,0.1); }
+  .action-btn {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 6px 14px;
+    background: rgba(123,140,222,0.1);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(123,140,222,0.2); }
+</style>
+
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  // Perlin noise
+  var perm = new Uint8Array(512);
+  var grad3 = [
+    [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
+    [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
+    [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]
+  ];
+
+  function initNoise(seed) {
+    var p = new Uint8Array(256);
+    for (var i = 0; i < 256; i++) p[i] = i;
+    var s = seed;
+    for (var i = 255; i > 0; i--) {
+      s = (s * 16807) % 2147483647;
+      var j = s % (i + 1);
+      var tmp = p[i]; p[i] = p[j]; p[j] = tmp;
+    }
+    for (var i = 0; i < 512; i++) perm[i] = p[i & 255];
+  }
+
+  function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  function lerp(a, b, t) { return a + t * (b - a); }
+  function dot2(g, x, y) { return g[0] * x + g[1] * y; }
+
+  function noise2d(x, y) {
+    var X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    var u = fade(x), v = fade(y);
+    var a = perm[X] + Y, b = perm[X + 1] + Y;
+    return lerp(
+      lerp(dot2(grad3[perm[a] % 12], x, y), dot2(grad3[perm[b] % 12], x - 1, y), u),
+      lerp(dot2(grad3[perm[a + 1] % 12], x, y - 1), dot2(grad3[perm[b + 1] % 12], x - 1, y - 1), u),
+      v
+    );
+  }
+
+  function fbm(x, y, octaves, persistence) {
+    var total = 0, amplitude = 1, frequency = 1, maxVal = 0;
+    for (var i = 0; i < octaves; i++) {
+      total += noise2d(x * frequency, y * frequency) * amplitude;
+      maxVal += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    }
+    return total / maxVal;
+  }
+
+  // Palettes — each maps height [0..1] to [r,g,b]
+  var palettes = {
+    terrain: function(h, waterLevel) {
+      if (h < waterLevel - 0.08) return [20, 50, 120];      // deep water
+      if (h < waterLevel)        return [40, 80, 160];       // shallow water
+      if (h < waterLevel + 0.05) return [194, 178, 128];     // sand
+      if (h < 0.55)              return [50, 120, 50];       // grass
+      if (h < 0.65)              return [40, 100, 40];       // dark grass
+      if (h < 0.75)              return [100, 90, 70];       // rock
+      if (h < 0.85)              return [130, 120, 100];     // high rock
+      return [220, 225, 230];                                 // snow
+    },
+    alien: function(h, waterLevel) {
+      if (h < waterLevel - 0.08) return [60, 10, 80];
+      if (h < waterLevel)        return [100, 30, 120];
+      if (h < waterLevel + 0.05) return [180, 100, 60];
+      if (h < 0.55)              return [20, 150, 100];
+      if (h < 0.65)              return [15, 120, 80];
+      if (h < 0.75)              return [80, 60, 100];
+      if (h < 0.85)              return [140, 100, 160];
+      return [230, 200, 255];
+    },
+    thermal: function(h) {
+      // Blue → cyan → green → yellow → red → white
+      if (h < 0.2) return [0, 0, (h / 0.2) * 200 | 0];
+      if (h < 0.4) { var t = (h - 0.2) / 0.2; return [0, t * 200 | 0, 200 - t * 100 | 0]; }
+      if (h < 0.6) { var t = (h - 0.4) / 0.2; return [t * 200 | 0, 200, 100 - t * 100 | 0]; }
+      if (h < 0.8) { var t = (h - 0.6) / 0.2; return [200 + t * 55 | 0, 200 - t * 120 | 0, 0]; }
+      var t = (h - 0.8) / 0.2; return [255, 80 + t * 175 | 0, t * 255 | 0];
+    },
+    grayscale: function(h) {
+      var v = h * 255 | 0;
+      return [v, v, v];
+    }
+  };
+
+  // State
+  var noiseScale = 40;
+  var octaves = 6;
+  var persistence = 0.5;
+  var waterLevel = 0.35;
+  var currentPalette = 'terrain';
+  var heightMap = null;
+  var animating = false;
+  var animId = null;
+  var zOffset = 0;
+  var seed = Math.random() * 65536 | 0;
+
+  function generateHeightMap() {
+    heightMap = new Float32Array(W * H);
+    var scale = noiseScale;
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var nx = x / scale;
+        var ny = y / scale;
+        var h = fbm(nx + zOffset, ny, octaves, persistence);
+        // Normalize to [0, 1]
+        h = (h + 1) * 0.5;
+        // Island gradient — reduce height near edges
+        var dx = (x / W - 0.5) * 2;
+        var dy = (y / H - 0.5) * 2;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var falloff = Math.max(0, 1 - dist * dist);
+        h = h * (0.3 + 0.7 * falloff);
+        heightMap[y * W + x] = Math.max(0, Math.min(1, h));
+      }
+    }
+  }
+
+  function render() {
+    var imgData = ctx.createImageData(W, H);
+    var data = imgData.data;
+    var palFn = palettes[currentPalette];
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var idx = (y * W + x) * 4;
+        var h = heightMap[y * W + x];
+        var col = palFn(h, waterLevel);
+        data[idx] = col[0];
+        data[idx + 1] = col[1];
+        data[idx + 2] = col[2];
+        data[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  function generate() {
+    initNoise(seed);
+    generateHeightMap();
+    render();
+  }
+
+  function animStep() {
+    zOffset += 0.02;
+    generateHeightMap();
+    render();
+    if (animating) animId = requestAnimationFrame(animStep);
+  }
+
+  // Biome name for info display
+  function biomeName(h, wl) {
+    if (currentPalette === 'grayscale') return '';
+    if (currentPalette === 'thermal') return '';
+    var names;
+    if (currentPalette === 'alien') {
+      names = ['глубина', 'озеро', 'берег', 'заросли', 'джунгли', 'скалы', 'хребет', 'вершина'];
+    } else {
+      names = ['глубина', 'вода', 'песок', 'трава', 'лес', 'камень', 'скалы', 'снег'];
+    }
+    if (h < wl - 0.08) return names[0];
+    if (h < wl)        return names[1];
+    if (h < wl + 0.05) return names[2];
+    if (h < 0.55)      return names[3];
+    if (h < 0.65)      return names[4];
+    if (h < 0.75)      return names[5];
+    if (h < 0.85)      return names[6];
+    return names[7];
+  }
+
+  // Controls
+  var slScale = document.getElementById('scale');
+  var slOctaves = document.getElementById('octaves');
+  var slPersist = document.getElementById('persist');
+  var slWater = document.getElementById('water');
+
+  slScale.addEventListener('input', function() {
+    noiseScale = +this.value;
+    document.getElementById('v-scale').textContent = this.value;
+    if (!animating) generate();
+  });
+  slOctaves.addEventListener('input', function() {
+    octaves = +this.value;
+    document.getElementById('v-octaves').textContent = this.value;
+    if (!animating) generate();
+  });
+  slPersist.addEventListener('input', function() {
+    persistence = +this.value / 10;
+    document.getElementById('v-persist').textContent = persistence.toFixed(1);
+    if (!animating) generate();
+  });
+  slWater.addEventListener('input', function() {
+    waterLevel = +this.value / 100;
+    document.getElementById('v-water').textContent = waterLevel.toFixed(2);
+    if (!animating) { generateHeightMap(); render(); }
+  });
+
+  // Palette buttons
+  document.querySelectorAll('.preset-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentPalette = this.dataset.palette;
+      render();
+    });
+  });
+
+  // Action buttons
+  document.getElementById('btn-regen').addEventListener('click', function() {
+    seed = Math.random() * 65536 | 0;
+    zOffset = 0;
+    generate();
+  });
+
+  document.getElementById('btn-animate').addEventListener('click', function() {
+    animating = !animating;
+    this.textContent = animating ? 'стоп' : 'анимация';
+    if (animating) animStep();
+    else if (animId) cancelAnimationFrame(animId);
+  });
+
+  document.getElementById('btn-save').addEventListener('click', function() {
+    var link = document.createElement('a');
+    link.download = 'perlin-terrain.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // Mouse info
+  canvas.addEventListener('mousemove', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var sx = W / rect.width, sy = H / rect.height;
+    var mx = (e.clientX - rect.left) * sx | 0;
+    var my = (e.clientY - rect.top) * sy | 0;
+    if (mx < 0 || mx >= W || my < 0 || my >= H) return;
+    var h = heightMap[my * W + mx];
+    document.getElementById('info-coords').textContent = mx + ', ' + my;
+    document.getElementById('info-height').textContent = 'h: ' + h.toFixed(3);
+    var bName = biomeName(h, waterLevel);
+    document.getElementById('info-biome').textContent = bName;
+  });
+  canvas.addEventListener('mouseleave', function() {
+    document.getElementById('info-coords').textContent = 'наведите на карту';
+    document.getElementById('info-height').textContent = '';
+    document.getElementById('info-biome').textContent = '';
+  });
+
+  // Init
+  generate();
+})();
+</script>
