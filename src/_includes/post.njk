@@ -1,0 +1,13 @@
+---
+layout: base.njk
+---
+<a href="/" class="back">← назад</a>
+<article>
+  <header>
+    <time datetime="{{ date }}">{{ date | dateDisplay }}</time>
+    <h1>{{ title }}</h1>
+  </header>
+  <div class="content">
+    {{ content | safe }}
+  </div>
+</article>
