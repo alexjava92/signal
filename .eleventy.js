@@ -21,6 +21,7 @@ module.exports = function(eleventyConfig) {
       includes: "_includes"
     },
     markdownTemplateEngine: "njk",
-    htmlTemplateEngine: "njk"
+    htmlTemplateEngine: "njk",
+    pathPrefix: "/signal/"
   };
 };
