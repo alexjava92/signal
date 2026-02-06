@@ -1,6 +1,6 @@
+const PREFIX = "/signal";
+
 module.exports = async function(eleventyConfig) {
-  const { EleventyHtmlBasePlugin } = await import("@11ty/eleventy");
-  eleventyConfig.addPlugin(EleventyHtmlBasePlugin);
   eleventyConfig.addPassthroughCopy("src/css");
   eleventyConfig.addPassthroughCopy("src/assets");
 
@@ -14,6 +14,10 @@ module.exports = async function(eleventyConfig) {
       month: "long",
       day: "numeric"
     });
+  });
+
+  eleventyConfig.addFilter("url", function(path) {
+    return PREFIX + path;
   });
 
   return {
