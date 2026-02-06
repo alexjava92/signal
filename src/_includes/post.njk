@@ -11,3 +11,32 @@ layout: base.njk
     {{ content | safe }}
   </div>
 </article>
+
+{% set allPosts = collections.posts %}
+{% set currentIndex = -1 %}
+{% for post in allPosts %}
+  {% if post.url == page.url %}
+    {% set currentIndex = loop.index0 %}
+  {% endif %}
+{% endfor %}
+
+{% if currentIndex >= 0 %}
+<nav class="post-nav">
+  {% if currentIndex < allPosts.length - 1 %}
+    <a href="{{ allPosts[currentIndex + 1].url | url }}" class="post-nav-link prev">
+      <span class="post-nav-label">← раньше</span>
+      <span class="post-nav-title">{{ allPosts[currentIndex + 1].data.title }}</span>
+    </a>
+  {% else %}
+    <span></span>
+  {% endif %}
+  {% if currentIndex > 0 %}
+    <a href="{{ allPosts[currentIndex - 1].url | url }}" class="post-nav-link next">
+      <span class="post-nav-label">позже →</span>
+      <span class="post-nav-title">{{ allPosts[currentIndex - 1].data.title }}</span>
+    </a>
+  {% else %}
+    <span></span>
+  {% endif %}
+</nav>
+{% endif %}

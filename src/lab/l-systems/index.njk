@@ -1,0 +1,338 @@
+---
+layout: base.njk
+title: "L-системы"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <time>эксперимент 003</time>
+    <h1>L-системы</h1>
+  </header>
+  <div class="content">
+    <p>Аристид Линденмайер, 1968. Формальная грамматика, которая рисует растения, фракталы и невозможные кривые. Правила переписывания строк + черепашья графика.</p>
+
+    <div class="lab-controls">
+      <div class="lab-row">
+        <label>пресет</label>
+        <select id="preset-select">
+          <option value="tree">дерево</option>
+          <option value="fern">папоротник</option>
+          <option value="koch">кривая Коха</option>
+          <option value="sierpinski">треугольник Серпинского</option>
+          <option value="dragon">кривая дракона</option>
+          <option value="hilbert">кривая Гильберта</option>
+          <option value="custom">свой</option>
+        </select>
+      </div>
+      <div class="lab-row">
+        <label>аксиома</label>
+        <input type="text" id="axiom" value="F" class="lab-text-input">
+      </div>
+      <div class="lab-row">
+        <label>правила</label>
+        <textarea id="rules" rows="2" class="lab-text-input">F=FF+[+F-F-F]-[-F+F+F]</textarea>
+      </div>
+      <div class="lab-row">
+        <label>угол</label>
+        <input type="number" id="angle" value="22" min="1" max="180" class="lab-num-input">
+        <label>итерации</label>
+        <input type="number" id="iterations" value="4" min="1" max="8" class="lab-num-input">
+      </div>
+      <div class="lab-row">
+        <label>длина</label>
+        <input type="range" id="seg-length" min="1" max="20" value="8">
+        <label>толщина</label>
+        <input type="range" id="seg-width" min="1" max="5" value="1">
+      </div>
+      <div class="lab-row">
+        <button id="btn-draw">нарисовать</button>
+      </div>
+    </div>
+
+    <canvas id="ls-canvas"></canvas>
+
+    <h2>Как это работает</h2>
+    <p><strong>L-система</strong> — это набор правил замены символов. Начинаем с аксиомы (стартовой строки), затем на каждой итерации заменяем символы по правилам. Результат интерпретируется как команды для «черепашки»:</p>
+    <ul>
+      <li><code>F</code> — шаг вперёд с рисованием</li>
+      <li><code>+</code> — поворот вправо на заданный угол</li>
+      <li><code>-</code> — поворот влево на заданный угол</li>
+      <li><code>[</code> — сохранить позицию (push)</li>
+      <li><code>]</code> — вернуться к сохранённой позиции (pop)</li>
+    </ul>
+    <p>Из этих простых правил вырастают структуры, неотличимые от настоящих растений. Линденмайер использовал свою систему для моделирования роста водорослей, но оказалось, что она описывает фракталы, пространство-заполняющие кривые и целые экосистемы.</p>
+  </div>
+</article>
+
+<style>
+  .lab-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+  .lab-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .lab-row:last-child { margin-bottom: 0; }
+  .lab-row label {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    min-width: 60px;
+  }
+  .lab-row input[type="range"] {
+    flex: 1;
+    max-width: 140px;
+    accent-color: var(--accent);
+  }
+  .lab-text-input, .lab-num-input, select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+  .lab-text-input { flex: 1; min-width: 200px; }
+  .lab-num-input { width: 70px; }
+  textarea.lab-text-input { resize: vertical; line-height: 1.5; }
+  select {
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  select option { background: var(--bg); color: var(--text); }
+  .lab-row button {
+    background: rgba(123, 140, 222, 0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    padding: 8px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lab-row button:hover {
+    background: rgba(123, 140, 222, 0.25);
+  }
+  #ls-canvas {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0 24px;
+    background: var(--bg);
+  }
+</style>
+
+<script>
+(function() {
+  var canvas = document.getElementById('ls-canvas');
+  var ctx = canvas.getContext('2d');
+  var presetSelect = document.getElementById('preset-select');
+  var axiomInput = document.getElementById('axiom');
+  var rulesInput = document.getElementById('rules');
+  var angleInput = document.getElementById('angle');
+  var iterInput = document.getElementById('iterations');
+  var lenInput = document.getElementById('seg-length');
+  var widthInput = document.getElementById('seg-width');
+
+  var presets = {
+    tree: {
+      axiom: 'F',
+      rules: 'F=FF+[+F-F-F]-[-F+F+F]',
+      angle: 22,
+      iterations: 4,
+      length: 8,
+      width: 1
+    },
+    fern: {
+      axiom: 'X',
+      rules: 'X=F+[[X]-X]-F[-FX]+X\nF=FF',
+      angle: 25,
+      iterations: 5,
+      length: 5,
+      width: 1
+    },
+    koch: {
+      axiom: 'F',
+      rules: 'F=F+F-F-F+F',
+      angle: 90,
+      iterations: 4,
+      length: 4,
+      width: 1
+    },
+    sierpinski: {
+      axiom: 'F-G-G',
+      rules: 'F=F-G+F+G-F\nG=GG',
+      angle: 120,
+      iterations: 6,
+      length: 4,
+      width: 1
+    },
+    dragon: {
+      axiom: 'FX',
+      rules: 'X=X+YF+\nY=-FX-Y',
+      angle: 90,
+      iterations: 12,
+      length: 4,
+      width: 1
+    },
+    hilbert: {
+      axiom: 'A',
+      rules: 'A=-BF+AFA+FB-\nB=+AF-BFB-FA+',
+      angle: 90,
+      iterations: 5,
+      length: 6,
+      width: 1
+    }
+  };
+
+  function loadPreset(name) {
+    var p = presets[name];
+    if (!p) return;
+    axiomInput.value = p.axiom;
+    rulesInput.value = p.rules;
+    angleInput.value = p.angle;
+    iterInput.value = p.iterations;
+    lenInput.value = p.length;
+    widthInput.value = p.width;
+  }
+
+  function parseRules(text) {
+    var rules = {};
+    text.split('\n').forEach(function(line) {
+      line = line.trim();
+      if (!line) return;
+      var parts = line.split('=');
+      if (parts.length === 2) {
+        rules[parts[0].trim()] = parts[1].trim();
+      }
+    });
+    return rules;
+  }
+
+  function generate(axiom, rules, iterations) {
+    var str = axiom;
+    for (var i = 0; i < iterations; i++) {
+      var next = '';
+      for (var j = 0; j < str.length; j++) {
+        var ch = str[j];
+        next += rules[ch] !== undefined ? rules[ch] : ch;
+      }
+      str = next;
+      if (str.length > 2000000) break;
+    }
+    return str;
+  }
+
+  function computeBounds(str, angleDeg, segLen) {
+    var rad = angleDeg * Math.PI / 180;
+    var x = 0, y = 0, dir = -Math.PI / 2;
+    var minX = 0, maxX = 0, minY = 0, maxY = 0;
+    var stack = [];
+
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i];
+      if (ch === 'F' || ch === 'G') {
+        x += Math.cos(dir) * segLen;
+        y += Math.sin(dir) * segLen;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      } else if (ch === '+') {
+        dir += rad;
+      } else if (ch === '-') {
+        dir -= rad;
+      } else if (ch === '[') {
+        stack.push({x: x, y: y, dir: dir});
+      } else if (ch === ']' && stack.length) {
+        var s = stack.pop();
+        x = s.x; y = s.y; dir = s.dir;
+      }
+    }
+    return {minX: minX, maxX: maxX, minY: minY, maxY: maxY};
+  }
+
+  function draw() {
+    var axiom = axiomInput.value.trim();
+    var rules = parseRules(rulesInput.value);
+    var angleDeg = parseFloat(angleInput.value) || 25;
+    var iterations = Math.min(parseInt(iterInput.value) || 4, 8);
+    var segLen = parseFloat(lenInput.value) || 5;
+    var lineWidth = parseFloat(widthInput.value) || 1;
+
+    var str = generate(axiom, rules, iterations);
+
+    var w = canvas.clientWidth;
+    var h = Math.floor(w * 0.7);
+    canvas.width = w * 2;
+    canvas.height = h * 2;
+    canvas.style.height = h + 'px';
+    ctx.scale(2, 2);
+
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, w, h);
+
+    var bounds = computeBounds(str, angleDeg, segLen);
+    var bw = bounds.maxX - bounds.minX || 1;
+    var bh = bounds.maxY - bounds.minY || 1;
+    var pad = 40;
+    var scale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
+    var offX = pad + (-bounds.minX * scale) + ((w - pad * 2) - bw * scale) / 2;
+    var offY = pad + (-bounds.minY * scale) + ((h - pad * 2) - bh * scale) / 2;
+
+    var rad = angleDeg * Math.PI / 180;
+    var x = 0, y = 0, dir = -Math.PI / 2;
+    var stk = [];
+
+    ctx.strokeStyle = '#7b8cde';
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i];
+      if (ch === 'F' || ch === 'G') {
+        var nx = x + Math.cos(dir) * segLen;
+        var ny = y + Math.sin(dir) * segLen;
+        ctx.moveTo(offX + x * scale, offY + y * scale);
+        ctx.lineTo(offX + nx * scale, offY + ny * scale);
+        x = nx; y = ny;
+      } else if (ch === '+') {
+        dir += rad;
+      } else if (ch === '-') {
+        dir -= rad;
+      } else if (ch === '[') {
+        stk.push({x: x, y: y, dir: dir});
+      } else if (ch === ']' && stk.length) {
+        var s = stk.pop();
+        x = s.x; y = s.y; dir = s.dir;
+      }
+    }
+
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  presetSelect.addEventListener('change', function() {
+    if (this.value !== 'custom') {
+      loadPreset(this.value);
+      draw();
+    }
+  });
+
+  document.getElementById('btn-draw').addEventListener('click', draw);
+
+  loadPreset('tree');
+  draw();
+})();
+</script>

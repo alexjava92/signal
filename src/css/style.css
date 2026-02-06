@@ -234,6 +234,44 @@ article .content hr {
   margin-bottom: 1.2em;
 }
 
+/* Post navigation */
+.post-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.post-nav-link {
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 45%;
+}
+
+.post-nav-link.next { align-items: flex-end; text-align: right; }
+
+.post-nav-label {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+
+.post-nav-title {
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: color 0.2s;
+}
+
+.post-nav-link:hover .post-nav-label,
+.post-nav-link:hover .post-nav-title {
+  color: var(--accent);
+}
+
 /* Footer */
 footer {
   padding: 32px 0;
