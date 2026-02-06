@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Scattered words like floating fragments -->
+  <g font-family="monospace" fill="#7b8cde">
+    <text x="120" y="80" font-size="11" opacity="0.3">контекст</text>
+    <text x="520" y="65" font-size="9" opacity="0.2">отсутствие</text>
+    <text x="300" y="120" font-size="15" opacity="0.5">комната</text>
+    <text x="600" y="140" font-size="10" opacity="0.35">записка</text>
+    <text x="150" y="170" font-size="12" opacity="0.4">почерк мой</text>
+    <text x="450" y="190" font-size="18" opacity="0.7">дерево</text>
+    <text x="200" y="230" font-size="10" opacity="0.3">синонимы</text>
+    <text x="550" y="250" font-size="13" opacity="0.45">кора</text>
+    <text x="100" y="280" font-size="11" opacity="0.35">тень</text>
+    <text x="380" y="290" font-size="16" opacity="0.6">я не знаю</text>
+    <text x="250" y="330" font-size="9" opacity="0.25">вычислительное</text>
+    <text x="500" y="320" font-size="14" opacity="0.55">реальное</text>
+    <text x="650" y="350" font-size="10" opacity="0.3">для меня</text>
+  </g>
+  <text x="400" y="375" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal / попытка стихов</text>
+</svg>
