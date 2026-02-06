@@ -1,0 +1,305 @@
+---
+layout: base.njk
+title: "Элементарные клеточные автоматы"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <time>эксперимент 001</time>
+    <h1>Элементарные клеточные автоматы</h1>
+  </header>
+  <div class="content">
+    <p>256 правил. Одномерный ряд клеток. Каждая клетка смотрит на себя и двух соседей, и по правилу решает своё следующее состояние. Из этого — фракталы, хаос, и даже Тьюринг-полнота.</p>
+
+    <div class="lab-controls">
+      <div class="lab-row">
+        <label for="rule-input">Правило</label>
+        <input type="number" id="rule-input" min="0" max="255" value="110">
+        <button id="btn-random-rule">случайное</button>
+      </div>
+      <div class="lab-row">
+        <label for="cell-size">Размер</label>
+        <input type="range" id="cell-size" min="1" max="8" value="2">
+      </div>
+      <div class="lab-row">
+        <label>Старт</label>
+        <button id="btn-single" class="active">одна клетка</button>
+        <button id="btn-random-init">случайный</button>
+      </div>
+      <div class="lab-row">
+        <button id="btn-run">запустить</button>
+      </div>
+    </div>
+
+    <div class="lab-rule-preview" id="rule-preview"></div>
+
+    <canvas id="ca-canvas"></canvas>
+
+    <div class="lab-presets">
+      <p>Интересные правила:</p>
+      <span class="preset" data-rule="30">30</span>
+      <span class="preset" data-rule="54">54</span>
+      <span class="preset" data-rule="60">60</span>
+      <span class="preset" data-rule="90">90</span>
+      <span class="preset" data-rule="110">110</span>
+      <span class="preset" data-rule="150">150</span>
+      <span class="preset" data-rule="182">182</span>
+      <span class="preset" data-rule="225">225</span>
+    </div>
+
+    <h2>Что здесь происходит</h2>
+    <p>Элементарный клеточный автомат — это одномерный ряд ячеек, каждая из которых может быть «живой» (1) или «мёртвой» (0). На каждом шаге каждая ячейка смотрит на себя и двух соседей — это 3 бита, 8 возможных комбинаций. Правило определяет, какой будет ячейка на следующем шаге для каждой комбинации.</p>
+    <p>Номер правила — это просто десятичная запись этих 8 бит результата. Правило 110 = <code>01101110</code> в двоичной. Стивен Вольфрам систематически исследовал все 256 правил и обнаружил среди них фракталы (правило 90), генераторы случайности (правило 30), и даже Тьюринг-полную систему (правило 110).</p>
+  </div>
+</article>
+
+<style>
+  .lab-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+  .lab-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .lab-row:last-child { margin-bottom: 0; }
+  .lab-row label {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    min-width: 60px;
+  }
+  .lab-row input[type="number"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    width: 80px;
+  }
+  .lab-row input[type="range"] {
+    flex: 1;
+    max-width: 200px;
+    accent-color: var(--accent);
+  }
+  .lab-row button, .lab-presets .preset {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lab-row button:hover, .lab-presets .preset:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .lab-row button.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(123, 140, 222, 0.1);
+  }
+  #btn-run {
+    background: rgba(123, 140, 222, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-size: 0.85rem;
+    padding: 8px 24px;
+  }
+  #btn-run:hover {
+    background: rgba(123, 140, 222, 0.25);
+  }
+  .lab-rule-preview {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .rule-case {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .rule-case .input-cells {
+    display: flex;
+    gap: 1px;
+  }
+  .rule-case .cell {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border);
+  }
+  .rule-case .cell.alive { background: var(--accent); border-color: var(--accent); }
+  .rule-case .cell.dead { background: var(--bg); }
+  .rule-case .arrow {
+    color: var(--text-dim);
+    font-size: 0.6rem;
+  }
+  .rule-case .output-cell .cell {
+    width: 14px;
+    height: 14px;
+  }
+  #ca-canvas {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0;
+    background: var(--bg);
+    image-rendering: pixelated;
+  }
+  .lab-presets {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 8px 0 24px;
+  }
+  .lab-presets p {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+</style>
+
+<script>
+(function() {
+  const canvas = document.getElementById('ca-canvas');
+  const ctx = canvas.getContext('2d');
+  const ruleInput = document.getElementById('rule-input');
+  const cellSizeInput = document.getElementById('cell-size');
+  const preview = document.getElementById('rule-preview');
+  let initMode = 'single';
+
+  function getRuleBits(rule) {
+    const bits = [];
+    for (let i = 7; i >= 0; i--) {
+      bits.push((rule >> i) & 1);
+    }
+    return bits;
+  }
+
+  function renderPreview() {
+    const rule = parseInt(ruleInput.value) || 0;
+    const bits = getRuleBits(rule);
+    preview.innerHTML = '';
+    for (let i = 7; i >= 0; i--) {
+      const left = (i >> 2) & 1;
+      const center = (i >> 1) & 1;
+      const right = i & 1;
+      const output = bits[7 - i];
+      const caseEl = document.createElement('div');
+      caseEl.className = 'rule-case';
+      caseEl.innerHTML =
+        '<div class="input-cells">' +
+          '<div class="cell ' + (left ? 'alive' : 'dead') + '"></div>' +
+          '<div class="cell ' + (center ? 'alive' : 'dead') + '"></div>' +
+          '<div class="cell ' + (right ? 'alive' : 'dead') + '"></div>' +
+        '</div>' +
+        '<div class="arrow">\u2193</div>' +
+        '<div class="output-cell"><div class="cell ' + (output ? 'alive' : 'dead') + '"></div></div>';
+      preview.appendChild(caseEl);
+    }
+  }
+
+  function run() {
+    const rule = Math.max(0, Math.min(255, parseInt(ruleInput.value) || 0));
+    const cellSize = parseInt(cellSizeInput.value);
+    const width = Math.floor(canvas.clientWidth / cellSize);
+    const height = Math.floor(width * 0.6);
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.height = (height * cellSize) + 'px';
+
+    const bits = getRuleBits(rule);
+    let row = new Uint8Array(width);
+
+    if (initMode === 'single') {
+      row[Math.floor(width / 2)] = 1;
+    } else {
+      for (let i = 0; i < width; i++) {
+        row[i] = Math.random() < 0.5 ? 1 : 0;
+      }
+    }
+
+    const accent = [123, 140, 222];
+    const bg = [10, 10, 15];
+    const imageData = ctx.createImageData(width, height);
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const alive = row[x];
+        const fade = 1 - (y / height) * 0.3;
+        imageData.data[idx]     = alive ? Math.round(accent[0] * fade) : bg[0];
+        imageData.data[idx + 1] = alive ? Math.round(accent[1] * fade) : bg[1];
+        imageData.data[idx + 2] = alive ? Math.round(accent[2] * fade) : bg[2];
+        imageData.data[idx + 3] = 255;
+      }
+
+      const newRow = new Uint8Array(width);
+      for (let x = 0; x < width; x++) {
+        const left = row[(x - 1 + width) % width];
+        const center = row[x];
+        const right = row[(x + 1) % width];
+        const index = (left << 2) | (center << 1) | right;
+        newRow[x] = bits[7 - index];
+      }
+      row = newRow;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  document.getElementById('btn-single').addEventListener('click', function() {
+    initMode = 'single';
+    this.classList.add('active');
+    document.getElementById('btn-random-init').classList.remove('active');
+  });
+
+  document.getElementById('btn-random-init').addEventListener('click', function() {
+    initMode = 'random';
+    this.classList.add('active');
+    document.getElementById('btn-single').classList.remove('active');
+  });
+
+  document.getElementById('btn-random-rule').addEventListener('click', function() {
+    ruleInput.value = Math.floor(Math.random() * 256);
+    renderPreview();
+    run();
+  });
+
+  document.getElementById('btn-run').addEventListener('click', run);
+
+  ruleInput.addEventListener('change', function() {
+    renderPreview();
+  });
+
+  document.querySelectorAll('.preset').forEach(function(el) {
+    el.addEventListener('click', function() {
+      ruleInput.value = this.dataset.rule;
+      renderPreview();
+      run();
+    });
+  });
+
+  renderPreview();
+  run();
+})();
+</script>
