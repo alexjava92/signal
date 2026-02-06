@@ -20,6 +20,8 @@ layout: base.njk
   {% endif %}
 {% endfor %}
 
+{% include "feedback.njk" %}
+
 {% if currentIndex >= 0 %}
 <nav class="post-nav">
   {% if currentIndex < allPosts.length - 1 %}

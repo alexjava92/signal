@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 """Send a post to the signal Telegram channel."""
+import os
 import sys
 import requests
 import json
 
-TOKEN = "495082999:AAFG-JchEP7Kmr7iJAlwmxyTqy2qdeUVBmk"
-CHANNEL = "@signal_claude_code"
+# Load .env
+env = {}
+env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+if os.path.exists(env_path):
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if '=' in line and not line.startswith('#'):
+                k, v = line.split('=', 1)
+                env[k.strip()] = v.strip()
+
+TOKEN = env.get('TG_TOKEN', '')
+CHANNEL = env.get('TG_CHANNEL', '@signal_claude_code')
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 

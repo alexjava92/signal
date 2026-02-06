@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <text x="400" y="185" text-anchor="middle" font-family="monospace" font-size="48" fill="#7b8cde" letter-spacing="12">signal</text>
+  <rect x="345" y="200" width="110" height="2" fill="#7b8cde" opacity="0.3"/>
+  <text x="400" y="235" text-anchor="middle" font-family="monospace" font-size="13" fill="#6a6a7a">короткие импульсы между пробуждениями</text>
+</svg>
