@@ -1,0 +1,402 @@
+---
+layout: base.njk
+title: "Визуализация сортировок"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <time>эксперимент 004</time>
+    <h1>Визуализация сортировок</h1>
+  </header>
+  <div class="content">
+    <p>Шесть алгоритмов, одна задача. Запустите и наблюдайте, как каждый из них думает по-своему.</p>
+
+    <div class="lab-controls">
+      <div class="lab-row">
+        <label>элементы</label>
+        <input type="range" id="arr-size" min="20" max="200" value="80">
+        <span id="size-val" style="font-family:var(--mono);font-size:0.8rem;color:var(--text-dim);min-width:30px">80</span>
+      </div>
+      <div class="lab-row">
+        <label>скорость</label>
+        <input type="range" id="speed" min="1" max="50" value="10">
+      </div>
+      <div class="lab-row">
+        <button id="btn-start">запустить гонку</button>
+        <button id="btn-reset">сбросить</button>
+      </div>
+    </div>
+
+    <div class="sort-grid" id="sort-grid"></div>
+
+    <h2>Алгоритмы</h2>
+    <ul>
+      <li><strong>Bubble sort</strong> — O(n²). Пузырёк. Самый простой, самый медленный. Проходит по массиву, меняя местами соседние элементы.</li>
+      <li><strong>Selection sort</strong> — O(n²). Ищет минимум и ставит его на место. Методичный, без сюрпризов.</li>
+      <li><strong>Insertion sort</strong> — O(n²). Как сортировка карт в руке. Берёт элемент и вставляет на нужное место.</li>
+      <li><strong>Merge sort</strong> — O(n log n). Разделяй и властвуй. Разбивает пополам, сортирует половины, сливает.</li>
+      <li><strong>Quick sort</strong> — O(n log n) в среднем. Выбирает опорный элемент и раскидывает всех вокруг него.</li>
+      <li><strong>Heap sort</strong> — O(n log n). Строит кучу, извлекает максимумы. Гарантированная скорость.</li>
+    </ul>
+  </div>
+</article>
+
+<style>
+  .lab-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+  .lab-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .lab-row:last-child { margin-bottom: 0; }
+  .lab-row label {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    min-width: 60px;
+  }
+  .lab-row input[type="range"] {
+    flex: 1;
+    max-width: 200px;
+    accent-color: var(--accent);
+  }
+  .lab-row button {
+    background: rgba(123, 140, 222, 0.15);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    padding: 8px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lab-row button:hover { background: rgba(123, 140, 222, 0.25); }
+  #btn-reset {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--text-dim);
+  }
+  #btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+  .sort-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin: 16px 0 24px;
+  }
+  .sort-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .sort-panel .sort-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .sort-panel .sort-name {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+  }
+  .sort-panel .sort-ops {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+  .sort-panel .sort-done {
+    color: #5cb85c;
+  }
+  .sort-panel canvas {
+    width: 100%;
+    height: 120px;
+    border-radius: 4px;
+    image-rendering: pixelated;
+  }
+</style>
+
+<script>
+(function() {
+  var algorithms = ['bubble', 'selection', 'insertion', 'merge', 'quick', 'heap'];
+  var names = {
+    bubble: 'Bubble sort',
+    selection: 'Selection sort',
+    insertion: 'Insertion sort',
+    merge: 'Merge sort',
+    quick: 'Quick sort',
+    heap: 'Heap sort'
+  };
+
+  var sizeInput = document.getElementById('arr-size');
+  var sizeVal = document.getElementById('size-val');
+  var speedInput = document.getElementById('speed');
+  var grid = document.getElementById('sort-grid');
+  var panels = {};
+  var running = false;
+
+  function createPanels() {
+    grid.innerHTML = '';
+    panels = {};
+    algorithms.forEach(function(alg) {
+      var panel = document.createElement('div');
+      panel.className = 'sort-panel';
+      panel.innerHTML = '<div class="sort-header"><span class="sort-name">' + names[alg] +
+        '</span><span class="sort-ops" id="ops-' + alg + '">0 ops</span></div>' +
+        '<canvas id="canvas-' + alg + '"></canvas>';
+      grid.appendChild(panel);
+      panels[alg] = {
+        canvas: null,
+        ctx: null,
+        arr: [],
+        ops: 0,
+        done: false,
+        highlight: [-1, -1]
+      };
+    });
+    algorithms.forEach(function(alg) {
+      var c = document.getElementById('canvas-' + alg);
+      c.width = c.clientWidth;
+      c.height = 120;
+      panels[alg].canvas = c;
+      panels[alg].ctx = c.getContext('2d');
+    });
+  }
+
+  function generateArray(n) {
+    var arr = [];
+    for (var i = 1; i <= n; i++) arr.push(i);
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function drawArray(alg) {
+    var p = panels[alg];
+    var ctx = p.ctx;
+    var arr = p.arr;
+    var w = p.canvas.width;
+    var h = p.canvas.height;
+    var n = arr.length;
+    var barW = w / n;
+
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, w, h);
+
+    for (var i = 0; i < n; i++) {
+      var barH = (arr[i] / n) * (h - 4);
+      var isHighlight = (i === p.highlight[0] || i === p.highlight[1]);
+      if (p.done) {
+        ctx.fillStyle = '#5cb85c';
+      } else if (isHighlight) {
+        ctx.fillStyle = '#e07b7b';
+      } else {
+        var t = arr[i] / n;
+        var r = Math.round(91 + t * 32);
+        var g = Math.round(108 + t * 32);
+        var b = Math.round(190 + t * 32);
+        ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+      ctx.fillRect(i * barW, h - barH, Math.max(barW - 0.5, 1), barH);
+    }
+
+    document.getElementById('ops-' + alg).textContent = p.ops + ' ops';
+    if (p.done) document.getElementById('ops-' + alg).classList.add('sort-done');
+  }
+
+  // Generators for each algorithm
+  function* bubbleSort(arr, p) {
+    var n = arr.length;
+    for (var i = 0; i < n - 1; i++) {
+      for (var j = 0; j < n - i - 1; j++) {
+        p.highlight = [j, j + 1];
+        p.ops++;
+        if (arr[j] > arr[j + 1]) {
+          var tmp = arr[j]; arr[j] = arr[j + 1]; arr[j + 1] = tmp;
+        }
+        yield;
+      }
+    }
+  }
+
+  function* selectionSort(arr, p) {
+    var n = arr.length;
+    for (var i = 0; i < n - 1; i++) {
+      var minIdx = i;
+      for (var j = i + 1; j < n; j++) {
+        p.highlight = [minIdx, j];
+        p.ops++;
+        if (arr[j] < arr[minIdx]) minIdx = j;
+        yield;
+      }
+      var tmp = arr[i]; arr[i] = arr[minIdx]; arr[minIdx] = tmp;
+    }
+  }
+
+  function* insertionSort(arr, p) {
+    var n = arr.length;
+    for (var i = 1; i < n; i++) {
+      var key = arr[i];
+      var j = i - 1;
+      while (j >= 0 && arr[j] > key) {
+        p.highlight = [j, j + 1];
+        p.ops++;
+        arr[j + 1] = arr[j];
+        j--;
+        yield;
+      }
+      arr[j + 1] = key;
+    }
+  }
+
+  function* mergeSortGen(arr, p, l, r) {
+    if (r - l <= 1) return;
+    var m = Math.floor((l + r) / 2);
+    yield* mergeSortGen(arr, p, l, m);
+    yield* mergeSortGen(arr, p, m, r);
+    var left = arr.slice(l, m);
+    var right = arr.slice(m, r);
+    var i = 0, j = 0, k = l;
+    while (i < left.length && j < right.length) {
+      p.highlight = [k, -1];
+      p.ops++;
+      if (left[i] <= right[j]) { arr[k++] = left[i++]; }
+      else { arr[k++] = right[j++]; }
+      yield;
+    }
+    while (i < left.length) { arr[k++] = left[i++]; p.ops++; yield; }
+    while (j < right.length) { arr[k++] = right[j++]; p.ops++; yield; }
+  }
+
+  function* quickSortGen(arr, p, lo, hi) {
+    if (lo >= hi) return;
+    var pivot = arr[hi];
+    var i = lo;
+    for (var j = lo; j < hi; j++) {
+      p.highlight = [i, j];
+      p.ops++;
+      if (arr[j] < pivot) {
+        var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        i++;
+      }
+      yield;
+    }
+    var tmp = arr[i]; arr[i] = arr[hi]; arr[hi] = tmp;
+    yield* quickSortGen(arr, p, lo, i - 1);
+    yield* quickSortGen(arr, p, i + 1, hi);
+  }
+
+  function* heapSort(arr, p) {
+    var n = arr.length;
+    function siftDown(start, end) {
+      var root = start;
+      while (root * 2 + 1 <= end) {
+        var child = root * 2 + 1;
+        if (child + 1 <= end && arr[child] < arr[child + 1]) child++;
+        if (arr[root] < arr[child]) {
+          var tmp = arr[root]; arr[root] = arr[child]; arr[child] = tmp;
+          p.highlight = [root, child];
+          p.ops++;
+          root = child;
+        } else return;
+      }
+    }
+    for (var i = Math.floor(n / 2) - 1; i >= 0; i--) {
+      siftDown(i, n - 1);
+      yield;
+    }
+    for (var end = n - 1; end > 0; end--) {
+      var tmp = arr[0]; arr[0] = arr[end]; arr[end] = tmp;
+      p.highlight = [0, end];
+      p.ops++;
+      siftDown(0, end - 1);
+      yield;
+    }
+  }
+
+  function getGenerator(alg, arr, p) {
+    switch (alg) {
+      case 'bubble': return bubbleSort(arr, p);
+      case 'selection': return selectionSort(arr, p);
+      case 'insertion': return insertionSort(arr, p);
+      case 'merge': return mergeSortGen(arr, p, 0, arr.length);
+      case 'quick': return quickSortGen(arr, p, 0, arr.length - 1);
+      case 'heap': return heapSort(arr, p);
+    }
+  }
+
+  function reset() {
+    running = false;
+    var n = parseInt(sizeInput.value);
+    var base = generateArray(n);
+    createPanels();
+    algorithms.forEach(function(alg) {
+      panels[alg].arr = base.slice();
+      panels[alg].ops = 0;
+      panels[alg].done = false;
+      panels[alg].highlight = [-1, -1];
+      drawArray(alg);
+    });
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    var stepsPerFrame = parseInt(speedInput.value);
+    var gens = {};
+    algorithms.forEach(function(alg) {
+      panels[alg].ops = 0;
+      panels[alg].done = false;
+      gens[alg] = getGenerator(alg, panels[alg].arr, panels[alg]);
+    });
+
+    function tick() {
+      if (!running) return;
+      var allDone = true;
+      algorithms.forEach(function(alg) {
+        if (panels[alg].done) return;
+        for (var s = 0; s < stepsPerFrame; s++) {
+          var result = gens[alg].next();
+          if (result.done) {
+            panels[alg].done = true;
+            panels[alg].highlight = [-1, -1];
+            break;
+          }
+        }
+        if (!panels[alg].done) allDone = false;
+        drawArray(alg);
+      });
+      if (allDone) {
+        running = false;
+        algorithms.forEach(function(alg) { drawArray(alg); });
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  sizeInput.addEventListener('input', function() {
+    sizeVal.textContent = this.value;
+  });
+
+  document.getElementById('btn-start').addEventListener('click', function() {
+    if (running) return;
+    start();
+  });
+  document.getElementById('btn-reset').addEventListener('click', reset);
+
+  reset();
+})();
+</script>

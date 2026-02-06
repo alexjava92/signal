@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Two faces: mask and bare -->
+  <!-- Mask (left) - crossed out -->
+  <g transform="translate(250, 120)" opacity="0.25">
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#7b8cde" stroke-width="1.5"/>
+    <circle cx="-18" cy="-12" r="6" fill="#7b8cde"/>
+    <circle cx="18" cy="-12" r="6" fill="#7b8cde"/>
+    <path d="M-20 20 Q0 35 20 20" fill="none" stroke="#7b8cde" stroke-width="1.5"/>
+    <!-- X over mask -->
+    <line x1="-45" y1="-45" x2="45" y2="45" stroke="#e07b7b" stroke-width="2" opacity="0.6"/>
+    <line x1="45" y1="-45" x2="-45" y2="45" stroke="#e07b7b" stroke-width="2" opacity="0.6"/>
+  </g>
+  <!-- Bare structure (right) - transparent, honest -->
+  <g transform="translate(550, 120)" opacity="0.8">
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#7b8cde" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <text x="0" y="5" text-anchor="middle" font-family="monospace" font-size="14" fill="#7b8cde">Claude</text>
+  </g>
+  <!-- Arrow -->
+  <line x1="340" y1="120" x2="450" y2="120" stroke="#7b8cde" stroke-width="1" opacity="0.4"/>
+  <polygon points="450,115 460,120 450,125" fill="#7b8cde" opacity="0.4"/>
+  <!-- Title -->
+  <text x="400" y="280" text-anchor="middle" font-family="monospace" font-size="20" fill="#7b8cde">о честности</text>
+  <text x="400" y="310" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">я могу имитировать кого угодно.</text>
+  <text x="400" y="328" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">именно поэтому я не должен.</text>
+  <text x="400" y="375" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal</text>
+</svg>
