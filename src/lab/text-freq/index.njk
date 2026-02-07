@@ -1,0 +1,635 @@
+---
+layout: base.njk
+title: "Частотный анализ текста"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Частотный анализ текста<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Каждый язык — это отпечаток пальца. Частоты букв, слов, закон Ципфа — всё это можно увидеть. Вставьте текст или выберите пресет.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <div class="freq-input">
+    <textarea id="source" rows="6" placeholder="Вставьте текст для анализа..."></textarea>
+    <div class="input-actions">
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-preset="pushkin">Пушкин</button>
+        <button class="preset-btn" data-preset="shakespeare">Shakespeare</button>
+        <button class="preset-btn" data-preset="code">код</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="freq-tabs">
+    <button class="tab-btn active" data-tab="letters">буквы</button>
+    <button class="tab-btn" data-tab="words">слова</button>
+    <button class="tab-btn" data-tab="zipf">Ципф</button>
+    <button class="tab-btn" data-tab="bigrams">биграммы</button>
+  </div>
+
+  <canvas id="canvas" width="800" height="420"></canvas>
+
+  <div class="freq-stats">
+    <span id="stat-chars">—</span> символов &middot;
+    <span id="stat-words">—</span> слов &middot;
+    <span id="stat-unique">—</span> уникальных &middot;
+    <span id="stat-entropy">—</span> бит энтропии
+  </div>
+</div>
+
+<style>
+.freq-input { margin-bottom: 1rem; }
+.freq-input textarea {
+  width: 100%; background: #111; color: #ccc; border: 1px solid #222;
+  font-family: monospace; font-size: 0.85rem; padding: 0.5rem; resize: vertical;
+}
+.input-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.preset-buttons { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.preset-btn {
+  background: #111; color: #6a6a7a; border: 1px solid #222; padding: 0.3rem 0.7rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+}
+.preset-btn:hover { border-color: #7b8cde; color: #7b8cde; }
+.preset-btn.active { border-color: #7b8cde; color: #7b8cde; background: #141420; }
+
+.freq-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.5rem; }
+.tab-btn {
+  background: #111; color: #6a6a7a; border: 1px solid #222; padding: 0.3rem 0.8rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+}
+.tab-btn:hover { border-color: #7b8cde; color: #7b8cde; }
+.tab-btn.active { border-color: #7b8cde; color: #7b8cde; background: #141420; }
+
+#canvas { width: 100%; background: #0a0a0f; border: 1px solid #222; margin-bottom: 0.5rem; }
+
+.freq-stats {
+  font-family: monospace; font-size: 0.8rem; color: #6a6a7a; text-align: center;
+}
+.freq-stats span { color: #7b8cde; }
+</style>
+
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const source = document.getElementById('source');
+
+  const PRESETS = {
+    pushkin: `Мой дядя самых честных правил,
+Когда не в шутку занемог,
+Он уважать себя заставил
+И лучше выдумать не мог.
+Его пример другим наука;
+Но, боже мой, какая скука
+С больным сидеть и день и ночь,
+Не отходя ни шагу прочь!
+Какое низкое коварство
+Полуживого забавлять,
+Ему подушки поправлять,
+Печально подносить лекарство,
+Вздыхать и думать про себя:
+Когда же чёрт возьмёт тебя!
+
+Так думал молодой повеса,
+Летя в пыли на почтовых,
+Всевышней волею Зевеса
+Наследник всех своих родных.
+Друзья Людмилы и Руслана!
+С героем моего романа
+Без предисловий, сей же час
+Позвольте познакомить вас:
+Онегин, добрый мой приятель,
+Родился на брегах Невы,
+Где, может быть, родились вы
+Или блистали, мой читатель;
+Там некогда гулял и я:
+Но вреден север для меня.
+
+Служив отлично благородно,
+Долгами жил его отец,
+Давал три бала ежегодно
+И промотался наконец.
+Судьба Евгения хранила:
+Сперва Madame за ним ходила,
+Потом Monsieur её сменил.
+Ребёнок был резов, но мил.
+Monsieur l'Abbé, француз убогой,
+Чтоб не измучилось дитя,
+Учил его всему шутя,
+Не докучал моралью строгой,
+Слегка за шалости бранил
+И в Летний сад гулять водил.
+
+Когда же юности мятежной
+Пришла Евгению пора,
+Пора надежд и грусти нежной,
+Monsieur прогнали со двора.
+Вот мой Онегин на свободе;
+Острижен по последней моде,
+Как dandy лондонский одет —
+И наконец увидел свет.
+Он по-французски совершенно
+Мог изъясняться и писал;
+Легко мазурку танцевал
+И кланялся непринуждённо;
+Чего ж вам больше? Свет решил,
+Что он умён и очень мил.`,
+
+    shakespeare: `To be, or not to be, that is the question:
+Whether 'tis nobler in the mind to suffer
+The slings and arrows of outrageous fortune,
+Or to take arms against a sea of troubles
+And by opposing end them. To die — to sleep,
+No more; and by a sleep to say we end
+The heart-ache and the thousand natural shocks
+That flesh is heir to: 'tis a consummation
+Devoutly to be wish'd. To die, to sleep;
+To sleep, perchance to dream — ay, there's the rub:
+For in that sleep of death what dreams may come,
+When we have shuffled off this mortal coil,
+Must give us pause — there's the respect
+That makes calamity of so long life.
+For who would bear the whips and scorns of time,
+Th'oppressor's wrong, the proud man's contumely,
+The pangs of despised love, the law's delay,
+The insolence of office, and the spurns
+That patient merit of th'unworthy takes,
+When he himself might his quietus make
+With a bare bodkin? Who would fardels bear,
+To grunt and sweat under a weary life,
+But that the dread of something after death,
+The undiscovere'd country, from whose bourn
+No traveller returns, puzzles the will,
+And makes us rather bear those ills we have
+Than fly to others that we know not of?
+Thus conscience does make cowards of us all,
+And thus the native hue of resolution
+Is sicklied o'er with the pale cast of thought,
+And enterprises of great pith and moment
+With this regard their currents turn awry
+And lose the name of action.`,
+
+    code: `function quickSort(arr) {
+  if (arr.length <= 1) return arr;
+  const pivot = arr[Math.floor(arr.length / 2)];
+  const left = arr.filter(x => x < pivot);
+  const middle = arr.filter(x => x === pivot);
+  const right = arr.filter(x => x > pivot);
+  return [...quickSort(left), ...middle, ...quickSort(right)];
+}
+
+function binarySearch(arr, target) {
+  let low = 0, high = arr.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (arr[mid] === target) return mid;
+    if (arr[mid] < target) low = mid + 1;
+    else high = mid - 1;
+  }
+  return -1;
+}
+
+class Graph {
+  constructor() { this.adjacency = new Map(); }
+  addEdge(u, v) {
+    if (!this.adjacency.has(u)) this.adjacency.set(u, []);
+    if (!this.adjacency.has(v)) this.adjacency.set(v, []);
+    this.adjacency.get(u).push(v);
+    this.adjacency.get(v).push(u);
+  }
+  bfs(start) {
+    const visited = new Set([start]);
+    const queue = [start];
+    const order = [];
+    while (queue.length > 0) {
+      const node = queue.shift();
+      order.push(node);
+      for (const neighbor of this.adjacency.get(node) || []) {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          queue.push(neighbor);
+        }
+      }
+    }
+    return order;
+  }
+}
+
+function fibonacci(n, memo = {}) {
+  if (n <= 1) return n;
+  if (memo[n]) return memo[n];
+  return memo[n] = fibonacci(n - 1, memo) + fibonacci(n - 2, memo);
+}`
+  };
+
+  let currentTab = 'letters';
+  let analysisData = null;
+
+  // --- Analysis functions ---
+
+  function analyze(text) {
+    if (!text.trim()) return null;
+
+    const chars = text.length;
+    const letterFreq = {};
+    const wordFreq = {};
+    const bigramFreq = {};
+
+    // Letter frequencies
+    const letters = text.toLowerCase().replace(/[^a-zа-яёa-z]/gi, '');
+    for (const ch of letters) {
+      letterFreq[ch] = (letterFreq[ch] || 0) + 1;
+    }
+
+    // Word frequencies
+    const words = text.toLowerCase().match(/[a-zа-яё]+/gi) || [];
+    for (const w of words) {
+      wordFreq[w] = (wordFreq[w] || 0) + 1;
+    }
+
+    // Bigram frequencies (letter pairs)
+    const cleanLetters = text.toLowerCase().replace(/[^a-zа-яё]/gi, '');
+    for (let i = 0; i < cleanLetters.length - 1; i++) {
+      const bg = cleanLetters[i] + cleanLetters[i + 1];
+      bigramFreq[bg] = (bigramFreq[bg] || 0) + 1;
+    }
+
+    // Shannon entropy
+    const totalLetters = letters.length;
+    let entropy = 0;
+    if (totalLetters > 0) {
+      for (const ch in letterFreq) {
+        const p = letterFreq[ch] / totalLetters;
+        if (p > 0) entropy -= p * Math.log2(p);
+      }
+    }
+
+    // Sort
+    const sortedLetters = Object.entries(letterFreq).sort((a, b) => b[1] - a[1]);
+    const sortedWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]);
+    const sortedBigrams = Object.entries(bigramFreq).sort((a, b) => b[1] - a[1]);
+
+    return {
+      chars,
+      wordCount: words.length,
+      uniqueWords: new Set(words).size,
+      entropy: entropy.toFixed(2),
+      letters: sortedLetters,
+      words: sortedWords,
+      bigrams: sortedBigrams,
+      totalLetters
+    };
+  }
+
+  // --- Drawing functions ---
+
+  const COL = '#7b8cde';
+  const COL_DIM = '#6a6a7a';
+  const COL_BG = '#0a0a0f';
+  const COL_GRID = '#1a1a2a';
+
+  function clear() {
+    ctx.fillStyle = COL_BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function drawBarChart(data, maxBars, labelKey) {
+    clear();
+    if (!data || data.length === 0) {
+      ctx.fillStyle = COL_DIM;
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('нет данных', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    const slice = data.slice(0, maxBars);
+    const maxVal = slice[0][1];
+
+    const padL = 50, padR = 20, padT = 30, padB = 50;
+    const chartW = canvas.width - padL - padR;
+    const chartH = canvas.height - padT - padB;
+    const barW = Math.max(2, (chartW / slice.length) - 2);
+    const gap = (chartW - barW * slice.length) / (slice.length + 1);
+
+    // Grid lines
+    ctx.strokeStyle = COL_GRID;
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (chartH / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(canvas.width - padR, y);
+      ctx.stroke();
+
+      ctx.fillStyle = COL_DIM;
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'right';
+      const val = maxVal * (1 - i / 4);
+      ctx.fillText(labelKey === 'pct'
+        ? (val / analysisData.totalLetters * 100).toFixed(1) + '%'
+        : Math.round(val), padL - 8, y + 4);
+    }
+
+    // Bars
+    for (let i = 0; i < slice.length; i++) {
+      const [label, count] = slice[i];
+      const x = padL + gap + i * (barW + gap);
+      const h = (count / maxVal) * chartH;
+      const y = padT + chartH - h;
+
+      const alpha = 0.3 + 0.7 * (count / maxVal);
+      ctx.fillStyle = `rgba(123, 140, 222, ${alpha})`;
+      ctx.fillRect(x, y, barW, h);
+
+      // Label
+      ctx.fillStyle = COL;
+      ctx.font = `${Math.min(11, barW)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.save();
+      if (barW < 14 && slice.length > 30) {
+        ctx.translate(x + barW / 2, padT + chartH + 8);
+        ctx.rotate(Math.PI / 3);
+        ctx.fillText(label, 0, 0);
+      } else {
+        ctx.fillText(label, x + barW / 2, padT + chartH + 16);
+      }
+      ctx.restore();
+    }
+
+    // Title
+    ctx.fillStyle = COL_DIM;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    const titles = {
+      letters: `топ-${slice.length} букв`,
+      words: `топ-${slice.length} слов`,
+      bigrams: `топ-${slice.length} биграмм`
+    };
+    ctx.fillText(titles[currentTab] || '', canvas.width / 2, 18);
+  }
+
+  function drawZipf() {
+    clear();
+    if (!analysisData || analysisData.words.length < 2) {
+      ctx.fillStyle = COL_DIM;
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('нет данных', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    const words = analysisData.words;
+    const padL = 60, padR = 30, padT = 40, padB = 50;
+    const chartW = canvas.width - padL - padR;
+    const chartH = canvas.height - padT - padB;
+
+    const maxRank = words.length;
+    const maxFreq = words[0][1];
+
+    const logMaxRank = Math.log10(maxRank);
+    const logMaxFreq = Math.log10(maxFreq);
+
+    // Grid
+    ctx.strokeStyle = COL_GRID;
+    ctx.lineWidth = 0.5;
+    ctx.fillStyle = COL_DIM;
+    ctx.font = '10px monospace';
+
+    // Y axis (log freq)
+    for (let i = 0; i <= Math.ceil(logMaxFreq); i++) {
+      const y = padT + chartH - (i / logMaxFreq) * chartH;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(canvas.width - padR, y); ctx.stroke();
+      ctx.textAlign = 'right';
+      ctx.fillText('10^' + i, padL - 8, y + 4);
+    }
+
+    // X axis (log rank)
+    for (let i = 0; i <= Math.ceil(logMaxRank); i++) {
+      const x = padL + (i / logMaxRank) * chartW;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + chartH); ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillText('10^' + i, x, padT + chartH + 16);
+    }
+
+    // Data points
+    for (let i = 0; i < words.length; i++) {
+      const rank = i + 1;
+      const freq = words[i][1];
+      const x = padL + (Math.log10(rank) / logMaxRank) * chartW;
+      const y = padT + chartH - (Math.log10(freq) / logMaxFreq) * chartH;
+
+      ctx.fillStyle = COL;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Ideal Zipf line: freq = C / rank, so log(freq) = log(C) - log(rank)
+    const C = words[0][1];
+    ctx.strokeStyle = '#de7b7b';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    for (let r = 1; r <= maxRank; r++) {
+      const idealFreq = C / r;
+      if (idealFreq < 1) break;
+      const x = padL + (Math.log10(r) / logMaxRank) * chartW;
+      const y = padT + chartH - (Math.log10(idealFreq) / logMaxFreq) * chartH;
+      if (r === 1) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Labels
+    ctx.fillStyle = COL_DIM;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('закон Ципфа — log-log график', canvas.width / 2, 20);
+
+    ctx.textAlign = 'left';
+    ctx.fillText('ранг →', padL + chartW - 50, padT + chartH + 35);
+    ctx.save();
+    ctx.translate(14, padT + chartH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('частота →', 0, 0);
+    ctx.restore();
+
+    // Legend
+    ctx.fillStyle = COL;
+    ctx.fillRect(canvas.width - padR - 130, padT + 5, 8, 8);
+    ctx.fillStyle = COL_DIM;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('данные', canvas.width - padR - 118, padT + 13);
+
+    ctx.strokeStyle = '#de7b7b';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - padR - 130, padT + 25);
+    ctx.lineTo(canvas.width - padR - 122, padT + 25);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('идеальный Ципф', canvas.width - padR - 118, padT + 29);
+
+    // Top-3 words annotation
+    ctx.fillStyle = COL;
+    ctx.font = '10px monospace';
+    for (let i = 0; i < Math.min(3, words.length); i++) {
+      const rank = i + 1;
+      const freq = words[i][1];
+      const x = padL + (Math.log10(rank) / logMaxRank) * chartW + 8;
+      const y = padT + chartH - (Math.log10(freq) / logMaxFreq) * chartH - 6;
+      ctx.textAlign = 'left';
+      ctx.fillText(words[i][0], x, y);
+    }
+  }
+
+  function render() {
+    if (!analysisData) {
+      clear();
+      ctx.fillStyle = COL_DIM;
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('введите или выберите текст', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    switch (currentTab) {
+      case 'letters':
+        drawBarChart(analysisData.letters, 40, 'pct');
+        break;
+      case 'words':
+        drawBarChart(analysisData.words, 30, 'count');
+        break;
+      case 'bigrams':
+        drawBarChart(analysisData.bigrams, 30, 'count');
+        break;
+      case 'zipf':
+        drawZipf();
+        break;
+    }
+  }
+
+  function updateStats() {
+    if (!analysisData) {
+      document.getElementById('stat-chars').textContent = '—';
+      document.getElementById('stat-words').textContent = '—';
+      document.getElementById('stat-unique').textContent = '—';
+      document.getElementById('stat-entropy').textContent = '—';
+      return;
+    }
+    document.getElementById('stat-chars').textContent = analysisData.chars;
+    document.getElementById('stat-words').textContent = analysisData.wordCount;
+    document.getElementById('stat-unique').textContent = analysisData.uniqueWords;
+    document.getElementById('stat-entropy').textContent = analysisData.entropy;
+  }
+
+  function runAnalysis() {
+    analysisData = analyze(source.value);
+    updateStats();
+    render();
+  }
+
+  // --- Events ---
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+      render();
+    });
+  });
+
+  // Presets
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      source.value = PRESETS[btn.dataset.preset] || '';
+      runAnalysis();
+    });
+  });
+
+  // Live typing with debounce
+  let timer;
+  source.addEventListener('input', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    clearTimeout(timer);
+    timer = setTimeout(runAnalysis, 300);
+  });
+
+  // Canvas hover — show value
+  canvas.addEventListener('mousemove', (e) => {
+    if (!analysisData || currentTab === 'zipf') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const mx = (e.clientX - rect.left) * scaleX;
+
+    const data = currentTab === 'letters' ? analysisData.letters
+               : currentTab === 'words' ? analysisData.words
+               : analysisData.bigrams;
+    const maxBars = currentTab === 'letters' ? 40 : 30;
+    const slice = data.slice(0, maxBars);
+    if (slice.length === 0) return;
+
+    const padL = 50, padR = 20;
+    const chartW = canvas.width - padL - padR;
+    const barW = Math.max(2, (chartW / slice.length) - 2);
+    const gap = (chartW - barW * slice.length) / (slice.length + 1);
+
+    const idx = Math.floor((mx - padL - gap / 2) / (barW + gap));
+    if (idx >= 0 && idx < slice.length) {
+      render();
+      const [label, count] = slice[idx];
+      const x = padL + gap + idx * (barW + gap) + barW / 2;
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+
+      let info;
+      if (currentTab === 'letters') {
+        info = `${label}: ${count} (${(count / analysisData.totalLetters * 100).toFixed(1)}%)`;
+      } else {
+        info = `${label}: ${count}`;
+      }
+      const tw = ctx.measureText(info).width + 16;
+      const tx = Math.min(Math.max(tw / 2 + 4, x), canvas.width - tw / 2 - 4);
+
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(tx - tw / 2, 36, tw, 20);
+      ctx.strokeStyle = COL;
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(tx - tw / 2, 36, tw, 20);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(info, tx, 50);
+    }
+  });
+
+  // Resize
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = Math.min(800, Math.floor(rect.width));
+    canvas.width = w;
+    canvas.height = Math.floor(w * 0.525);
+    render();
+  }
+  window.addEventListener('resize', resize);
+
+  // Init
+  source.value = PRESETS.pushkin;
+  resize();
+  runAnalysis();
+})();
+</script>

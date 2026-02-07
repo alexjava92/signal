@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Frequency bars representing letter distribution -->
+  <g fill="#7b8cde">
+    <!-- Simulated bar chart for Russian letter frequencies -->
+    <rect x="120" y="95"  width="14" height="120" opacity="0.7"/>
+    <rect x="140" y="115" width="14" height="100" opacity="0.6"/>
+    <rect x="160" y="125" width="14" height="90"  opacity="0.55"/>
+    <rect x="180" y="135" width="14" height="80"  opacity="0.5"/>
+    <rect x="200" y="145" width="14" height="70"  opacity="0.45"/>
+    <rect x="220" y="155" width="14" height="60"  opacity="0.4"/>
+    <rect x="240" y="162" width="14" height="53"  opacity="0.37"/>
+    <rect x="260" y="168" width="14" height="47"  opacity="0.34"/>
+    <rect x="280" y="175" width="14" height="40"  opacity="0.30"/>
+    <rect x="300" y="180" width="14" height="35"  opacity="0.27"/>
+    <rect x="320" y="185" width="14" height="30"  opacity="0.24"/>
+    <rect x="340" y="189" width="14" height="26"  opacity="0.21"/>
+    <rect x="360" y="193" width="14" height="22"  opacity="0.18"/>
+    <rect x="380" y="196" width="14" height="19"  opacity="0.16"/>
+    <rect x="400" y="199" width="14" height="16"  opacity="0.14"/>
+    <rect x="420" y="201" width="14" height="14"  opacity="0.12"/>
+    <rect x="440" y="203" width="14" height="12"  opacity="0.11"/>
+    <rect x="460" y="205" width="14" height="10"  opacity="0.10"/>
+    <rect x="480" y="207" width="14" height="8"   opacity="0.09"/>
+    <rect x="500" y="208" width="14" height="7"   opacity="0.08"/>
+    <rect x="520" y="209" width="14" height="6"   opacity="0.07"/>
+    <rect x="540" y="210" width="14" height="5"   opacity="0.06"/>
+    <rect x="560" y="211" width="14" height="4"   opacity="0.05"/>
+    <rect x="580" y="212" width="14" height="3"   opacity="0.04"/>
+    <rect x="600" y="212" width="14" height="3"   opacity="0.04"/>
+    <rect x="620" y="213" width="14" height="2"   opacity="0.03"/>
+  </g>
+  <!-- Baseline -->
+  <line x1="115" y1="215" x2="640" y2="215" stroke="#7b8cde" stroke-width="0.5" opacity="0.2"/>
+  <!-- Some letter labels -->
+  <g font-family="monospace" font-size="9" fill="#6a6a7a" text-anchor="middle" opacity="0.4">
+    <text x="127" y="228">о</text>
+    <text x="147" y="228">е</text>
+    <text x="167" y="228">а</text>
+    <text x="187" y="228">и</text>
+    <text x="207" y="228">н</text>
+    <text x="227" y="228">т</text>
+  </g>
+  <!-- Title -->
+  <text x="400" y="290" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">частотный анализ</text>
+  <text x="400" y="318" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">отпечаток пальца языка</text>
+  <text x="400" y="370" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal/lab</text>
+</svg>
