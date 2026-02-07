@@ -1,0 +1,501 @@
+---
+layout: base.njk
+title: "Лабиринты"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Лабиринты<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Четыре алгоритма генерации. Каждый — свой характер. Наблюдайте за построением шаг за шагом, затем найдите решение.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <canvas id="canvas" width="802" height="602"></canvas>
+  <div class="lab-info">
+    <span class="info-tag" id="info-algo">алгоритм: DFS</span>
+    <span class="info-tag" id="info-size">25×25</span>
+    <span class="info-tag" id="info-state">готов</span>
+  </div>
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>размер: <span id="v-size">25</span></label>
+      <input type="range" id="size" min="5" max="50" value="25" step="5">
+    </div>
+    <div class="control-group">
+      <label>скорость: <span id="v-speed">5</span></label>
+      <input type="range" id="speed" min="1" max="20" value="5" step="1">
+    </div>
+    <div class="control-group">
+      <label>алгоритм:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-algo="dfs">DFS</button>
+        <button class="preset-btn" data-algo="kruskal">Kruskal</button>
+        <button class="preset-btn" data-algo="prim">Prim</button>
+        <button class="preset-btn" data-algo="divide">деление</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <button id="btn-generate" class="action-btn">генерировать</button>
+      <button id="btn-solve" class="action-btn">решить</button>
+      <button id="btn-instant" class="action-btn">мгновенно</button>
+    </div>
+  </div>
+  <div class="rules-info">
+    <div class="rule"><strong>DFS</strong> — глубокий поиск. Длинные извилистые коридоры. Мало развилок.</div>
+    <div class="rule"><strong>Kruskal</strong> — случайные стены. Равномерная текстура. Много коротких тупиков.</div>
+    <div class="rule"><strong>Prim</strong> — рост от точки. Органические формы. Как кристалл.</div>
+    <div class="rule"><strong>Деление</strong> — рекурсивное деление пространства. Прямые стены, крупные комнаты.</div>
+  </div>
+</div>
+
+<style>
+  .lab-container { margin-top: 24px; }
+  #canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #0a0a0f;
+  }
+  .lab-info { display: flex; gap: 12px; margin-top: 8px; }
+  .info-tag {
+    font-family: var(--mono); font-size: 0.7rem; color: var(--text-dim);
+    background: var(--bg-card); padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border);
+  }
+  .lab-controls {
+    display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; padding: 16px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+  .control-group label { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  .control-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .preset-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    font-family: var(--mono); font-size: 0.7rem; padding: 4px 10px;
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(123,140,222,0.1); }
+  .action-btn {
+    font-family: var(--mono); font-size: 0.75rem; padding: 6px 14px;
+    background: rgba(123,140,222,0.1); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(123,140,222,0.2); }
+  .action-btn:disabled { opacity: 0.3; cursor: default; }
+  .rules-info {
+    margin-top: 16px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;
+  }
+  .rule {
+    font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim);
+    padding: 12px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 4px; line-height: 1.5;
+  }
+  .rule strong { color: var(--accent); }
+</style>
+
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+
+  var cols = 25, rows = 25;
+  var cellW, cellH;
+  var algo = 'dfs';
+  var stepsPerFrame = 5;
+  var generating = false;
+  var solving = false;
+
+  // Cell: walls[N, E, S, W], visited
+  var grid;
+
+  function initGrid() {
+    grid = [];
+    cellW = (canvas.width - 2) / cols;
+    cellH = (canvas.height - 2) / rows;
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        grid.push({ x: x, y: y, walls: [true, true, true, true], visited: false, color: null });
+      }
+    }
+  }
+
+  function cellAt(x, y) {
+    if (x < 0 || x >= cols || y < 0 || y >= rows) return null;
+    return grid[y * cols + x];
+  }
+
+  function removeWall(a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    if (dx === 1) { a.walls[1] = false; b.walls[3] = false; }
+    if (dx === -1) { a.walls[3] = false; b.walls[1] = false; }
+    if (dy === 1) { a.walls[2] = false; b.walls[0] = false; }
+    if (dy === -1) { a.walls[0] = false; b.walls[2] = false; }
+  }
+
+  function drawCell(c) {
+    var x = 1 + c.x * cellW, y = 1 + c.y * cellH;
+    // Fill
+    if (c.color) {
+      ctx.fillStyle = c.color;
+      ctx.fillRect(x, y, cellW, cellH);
+    } else if (c.visited) {
+      ctx.fillStyle = '#111118';
+      ctx.fillRect(x, y, cellW, cellH);
+    } else {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(x, y, cellW, cellH);
+    }
+    // Walls
+    ctx.strokeStyle = '#2a2a3a';
+    ctx.lineWidth = 1;
+    if (c.walls[0]) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + cellW, y); ctx.stroke(); }
+    if (c.walls[1]) { ctx.beginPath(); ctx.moveTo(x + cellW, y); ctx.lineTo(x + cellW, y + cellH); ctx.stroke(); }
+    if (c.walls[2]) { ctx.beginPath(); ctx.moveTo(x, y + cellH); ctx.lineTo(x + cellW, y + cellH); ctx.stroke(); }
+    if (c.walls[3]) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + cellH); ctx.stroke(); }
+  }
+
+  function drawAll() {
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (var i = 0; i < grid.length; i++) drawCell(grid[i]);
+    // Start and end markers
+    var s = cellAt(0, 0), e = cellAt(cols - 1, rows - 1);
+    ctx.fillStyle = 'rgba(80, 200, 120, 0.4)';
+    ctx.fillRect(1, 1, cellW, cellH);
+    ctx.fillStyle = 'rgba(200, 80, 80, 0.4)';
+    ctx.fillRect(1 + e.x * cellW, 1 + e.y * cellH, cellW, cellH);
+  }
+
+  // ========== GENERATORS ==========
+
+  // DFS (recursive backtracker)
+  function* genDFS() {
+    var stack = [];
+    var start = cellAt(0, 0);
+    start.visited = true;
+    start.color = 'rgba(123,140,222,0.2)';
+    stack.push(start);
+    yield;
+
+    while (stack.length > 0) {
+      var current = stack[stack.length - 1];
+      var neighbors = [];
+      var dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+      for (var d = 0; d < 4; d++) {
+        var n = cellAt(current.x + dirs[d][0], current.y + dirs[d][1]);
+        if (n && !n.visited) neighbors.push(n);
+      }
+      if (neighbors.length > 0) {
+        var next = neighbors[Math.random() * neighbors.length | 0];
+        removeWall(current, next);
+        next.visited = true;
+        current.color = null;
+        next.color = 'rgba(123,140,222,0.3)';
+        stack.push(next);
+      } else {
+        current.color = null;
+        stack.pop();
+        if (stack.length > 0) stack[stack.length - 1].color = 'rgba(123,140,222,0.2)';
+      }
+      yield;
+    }
+  }
+
+  // Kruskal
+  function* genKruskal() {
+    // Union-Find
+    var parent = [];
+    for (var i = 0; i < cols * rows; i++) parent.push(i);
+    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    function union(a, b) { parent[find(a)] = find(b); }
+
+    // All edges
+    var edges = [];
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        if (x < cols - 1) edges.push([y * cols + x, y * cols + x + 1]);
+        if (y < rows - 1) edges.push([y * cols + x, (y + 1) * cols + x]);
+      }
+    }
+    // Shuffle
+    for (var i = edges.length - 1; i > 0; i--) {
+      var j = Math.random() * (i + 1) | 0;
+      var tmp = edges[i]; edges[i] = edges[j]; edges[j] = tmp;
+    }
+
+    for (var i = 0; i < edges.length; i++) {
+      var a = edges[i][0], b = edges[i][1];
+      if (find(a) !== find(b)) {
+        union(a, b);
+        var ca = grid[a], cb = grid[b];
+        removeWall(ca, cb);
+        ca.visited = true; cb.visited = true;
+        ca.color = 'rgba(123,140,222,0.3)';
+        cb.color = 'rgba(123,140,222,0.3)';
+        yield;
+        ca.color = null; cb.color = null;
+      }
+    }
+    for (var i = 0; i < grid.length; i++) grid[i].visited = true;
+  }
+
+  // Prim
+  function* genPrim() {
+    var start = cellAt(0, 0);
+    start.visited = true;
+    var frontier = [];
+    function addFrontier(c) {
+      var dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+      for (var d = 0; d < 4; d++) {
+        var n = cellAt(c.x + dirs[d][0], c.y + dirs[d][1]);
+        if (n && !n.visited) {
+          var already = false;
+          for (var j = 0; j < frontier.length; j++) { if (frontier[j] === n) { already = true; break; } }
+          if (!already) { frontier.push(n); n.color = 'rgba(123,140,222,0.1)'; }
+        }
+      }
+    }
+    addFrontier(start);
+    yield;
+
+    while (frontier.length > 0) {
+      var idx = Math.random() * frontier.length | 0;
+      var cell = frontier[idx];
+      frontier.splice(idx, 1);
+      // Find visited neighbors
+      var dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+      var visitedNeighbors = [];
+      for (var d = 0; d < 4; d++) {
+        var n = cellAt(cell.x + dirs[d][0], cell.y + dirs[d][1]);
+        if (n && n.visited) visitedNeighbors.push(n);
+      }
+      if (visitedNeighbors.length > 0) {
+        var neighbor = visitedNeighbors[Math.random() * visitedNeighbors.length | 0];
+        removeWall(cell, neighbor);
+        cell.visited = true;
+        cell.color = 'rgba(123,140,222,0.3)';
+        addFrontier(cell);
+        yield;
+        cell.color = null;
+      }
+    }
+  }
+
+  // Recursive division
+  function* genDivide() {
+    // Start with open grid
+    for (var i = 0; i < grid.length; i++) {
+      grid[i].visited = true;
+      grid[i].walls = [false, false, false, false];
+    }
+    // Add border walls
+    for (var x = 0; x < cols; x++) {
+      cellAt(x, 0).walls[0] = true;
+      cellAt(x, rows - 1).walls[2] = true;
+    }
+    for (var y = 0; y < rows; y++) {
+      cellAt(0, y).walls[3] = true;
+      cellAt(cols - 1, y).walls[1] = true;
+    }
+    yield;
+
+    function* divide(x, y, w, h) {
+      if (w < 2 || h < 2) return;
+
+      if (w > h) {
+        // Vertical wall
+        var wx = x + 1 + (Math.random() * (w - 2) | 0);
+        var passage = y + (Math.random() * h | 0);
+        for (var row = y; row < y + h; row++) {
+          if (row !== passage) {
+            var left = cellAt(wx - 1, row);
+            var right = cellAt(wx, row);
+            if (left) left.walls[1] = true;
+            if (right) right.walls[3] = true;
+            if (left) left.color = 'rgba(123,140,222,0.2)';
+            if (right) right.color = 'rgba(123,140,222,0.2)';
+          }
+          yield;
+          if (cellAt(wx - 1, row)) cellAt(wx - 1, row).color = null;
+          if (cellAt(wx, row)) cellAt(wx, row).color = null;
+        }
+        yield* divide(x, y, wx - x, h);
+        yield* divide(wx, y, x + w - wx, h);
+      } else {
+        // Horizontal wall
+        var wy = y + 1 + (Math.random() * (h - 2) | 0);
+        var passage = x + (Math.random() * w | 0);
+        for (var col = x; col < x + w; col++) {
+          if (col !== passage) {
+            var top = cellAt(col, wy - 1);
+            var bottom = cellAt(col, wy);
+            if (top) top.walls[2] = true;
+            if (bottom) bottom.walls[0] = true;
+            if (top) top.color = 'rgba(123,140,222,0.2)';
+            if (bottom) bottom.color = 'rgba(123,140,222,0.2)';
+          }
+          yield;
+          if (cellAt(col, wy - 1)) cellAt(col, wy - 1).color = null;
+          if (cellAt(col, wy)) cellAt(col, wy).color = null;
+        }
+        yield* divide(x, y, w, wy - y);
+        yield* divide(x, wy, w, y + h - wy);
+      }
+    }
+
+    yield* divide(0, 0, cols, rows);
+  }
+
+  var generators = { dfs: genDFS, kruskal: genKruskal, prim: genPrim, divide: genDivide };
+  var gen = null;
+  var animId = null;
+
+  function stepGenerate() {
+    for (var i = 0; i < stepsPerFrame; i++) {
+      var result = gen.next();
+      if (result.done) {
+        generating = false;
+        document.getElementById('info-state').textContent = 'готово';
+        document.getElementById('btn-generate').disabled = false;
+        document.getElementById('btn-solve').disabled = false;
+        document.getElementById('btn-instant').disabled = false;
+        drawAll();
+        return;
+      }
+    }
+    drawAll();
+    animId = requestAnimationFrame(stepGenerate);
+  }
+
+  function startGenerate(instant) {
+    generating = true;
+    solving = false;
+    if (animId) cancelAnimationFrame(animId);
+    initGrid();
+    gen = generators[algo]();
+    document.getElementById('info-state').textContent = 'генерация...';
+    document.getElementById('btn-generate').disabled = true;
+    document.getElementById('btn-solve').disabled = true;
+
+    if (instant) {
+      while (!gen.next().done) {}
+      generating = false;
+      document.getElementById('info-state').textContent = 'готово';
+      document.getElementById('btn-generate').disabled = false;
+      document.getElementById('btn-solve').disabled = false;
+      drawAll();
+    } else {
+      stepGenerate();
+    }
+  }
+
+  // ========== SOLVER (BFS) ==========
+  function* solveBFS() {
+    var start = cellAt(0, 0);
+    var end = cellAt(cols - 1, rows - 1);
+    var queue = [start];
+    var visited = new Set();
+    var parent = new Map();
+    visited.add(start);
+
+    var dirs = [[0,-1,0],[1,0,1],[0,1,2],[-1,0,3]];
+    var opposite = [2, 3, 0, 1];
+
+    while (queue.length > 0) {
+      var current = queue.shift();
+      if (current === end) break;
+
+      for (var d = 0; d < 4; d++) {
+        if (current.walls[d]) continue;
+        var n = cellAt(current.x + dirs[d][0], current.y + dirs[d][1]);
+        if (n && !visited.has(n)) {
+          visited.add(n);
+          parent.set(n, current);
+          n.color = 'rgba(123,140,222,0.1)';
+          queue.push(n);
+        }
+      }
+      current.color = 'rgba(60,60,90,0.3)';
+      yield;
+    }
+
+    // Trace path
+    var path = [];
+    var c = end;
+    while (c) {
+      path.push(c);
+      c = parent.get(c);
+    }
+    for (var i = path.length - 1; i >= 0; i--) {
+      path[i].color = 'rgba(80, 200, 120, 0.4)';
+      yield;
+    }
+  }
+
+  var solveGen = null;
+
+  function stepSolve() {
+    for (var i = 0; i < stepsPerFrame * 2; i++) {
+      var result = solveGen.next();
+      if (result.done) {
+        solving = false;
+        document.getElementById('info-state').textContent = 'решено';
+        document.getElementById('btn-generate').disabled = false;
+        drawAll();
+        return;
+      }
+    }
+    drawAll();
+    animId = requestAnimationFrame(stepSolve);
+  }
+
+  function startSolve() {
+    if (generating) return;
+    solving = true;
+    // Clear colors
+    for (var i = 0; i < grid.length; i++) grid[i].color = null;
+    solveGen = solveBFS();
+    document.getElementById('info-state').textContent = 'поиск пути...';
+    document.getElementById('btn-generate').disabled = true;
+    document.getElementById('btn-solve').disabled = true;
+    stepSolve();
+  }
+
+  // ========== CONTROLS ==========
+
+  document.getElementById('size').addEventListener('input', function() {
+    cols = rows = +this.value;
+    document.getElementById('v-size').textContent = this.value;
+    document.getElementById('info-size').textContent = cols + '×' + rows;
+  });
+
+  document.getElementById('speed').addEventListener('input', function() {
+    stepsPerFrame = +this.value;
+    document.getElementById('v-speed').textContent = this.value;
+  });
+
+  document.querySelectorAll('[data-algo]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('[data-algo]').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      algo = this.dataset.algo;
+      document.getElementById('info-algo').textContent = 'алгоритм: ' + this.textContent;
+    });
+  });
+
+  document.getElementById('btn-generate').addEventListener('click', function() { startGenerate(false); });
+  document.getElementById('btn-instant').addEventListener('click', function() { startGenerate(true); });
+  document.getElementById('btn-solve').addEventListener('click', startSolve);
+
+  // Init
+  initGrid();
+  startGenerate(false);
+})();
+</script>
