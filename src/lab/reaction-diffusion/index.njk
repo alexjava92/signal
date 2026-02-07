@@ -1,0 +1,373 @@
+---
+layout: base.njk
+title: "Реакция-диффузия"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Реакция-диффузия<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Тьюринг, 1952. Два вещества, подача и удаление, диффузия. Из этого — пятна леопарда, полоски зебры, узоры кораллов. Рисуйте мышью — добавляйте вещество B.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <canvas id="canvas" width="256" height="256"></canvas>
+  <div class="lab-info">
+    <span class="info-tag" id="info-step">шаг: 0</span>
+    <span class="info-tag" id="info-fps">fps: --</span>
+  </div>
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>feed (f): <span id="v-feed">0.055</span></label>
+      <input type="range" id="feed" min="10" max="80" value="55" step="1">
+    </div>
+    <div class="control-group">
+      <label>kill (k): <span id="v-kill">0.062</span></label>
+      <input type="range" id="kill" min="30" max="75" value="62" step="1">
+    </div>
+    <div class="control-group">
+      <label>D<sub>a</sub>: <span id="v-da">1.0</span></label>
+      <input type="range" id="da" min="2" max="14" value="10" step="1">
+    </div>
+    <div class="control-group">
+      <label>D<sub>b</sub>: <span id="v-db">0.5</span></label>
+      <input type="range" id="db" min="1" max="10" value="5" step="1">
+    </div>
+    <div class="control-group">
+      <label>шагов/кадр: <span id="v-spf">8</span></label>
+      <input type="range" id="spf" min="1" max="20" value="8" step="1">
+    </div>
+    <div class="control-group">
+      <label>пресеты:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-preset="mitosis">митоз</button>
+        <button class="preset-btn" data-preset="coral">коралл</button>
+        <button class="preset-btn" data-preset="maze">лабиринт</button>
+        <button class="preset-btn" data-preset="spots">пятна</button>
+        <button class="preset-btn" data-preset="waves">волны</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>палитра:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-palette="blue">синяя</button>
+        <button class="preset-btn" data-palette="fire">огонь</button>
+        <button class="preset-btn" data-palette="ocean">океан</button>
+        <button class="preset-btn" data-palette="bw">ч/б</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <button id="btn-reset" class="action-btn">сбросить</button>
+      <button id="btn-pause" class="action-btn">пауза</button>
+      <button id="btn-save" class="action-btn">PNG</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .lab-container { margin-top: 24px; }
+  #canvas {
+    width: 100%;
+    max-width: 600px;
+    height: auto;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    image-rendering: pixelated;
+    cursor: crosshair;
+  }
+  .lab-info { display: flex; gap: 12px; margin-top: 8px; }
+  .info-tag {
+    font-family: var(--mono); font-size: 0.7rem; color: var(--text-dim);
+    background: var(--bg-card); padding: 2px 8px; border-radius: 3px; border: 1px solid var(--border);
+  }
+  .lab-controls {
+    display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; padding: 16px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 130px; }
+  .control-group label { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  .control-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .preset-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    font-family: var(--mono); font-size: 0.7rem; padding: 4px 10px;
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(123,140,222,0.1); }
+  .action-btn {
+    font-family: var(--mono); font-size: 0.75rem; padding: 6px 14px;
+    background: rgba(123,140,222,0.1); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(123,140,222,0.2); }
+</style>
+
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  // Gray-Scott model
+  var gridA, gridB, nextA, nextB;
+  var f = 0.055, k = 0.062;
+  var dA = 1.0, dB = 0.5;
+  var dt = 1.0;
+  var stepsPerFrame = 8;
+  var paused = false;
+  var stepCount = 0;
+  var currentPalette = 'blue';
+
+  var presets = {
+    mitosis:  { f: 0.0367, k: 0.0649 },
+    coral:    { f: 0.0545, k: 0.062 },
+    maze:     { f: 0.029, k: 0.057 },
+    spots:    { f: 0.035, k: 0.065 },
+    waves:    { f: 0.014, k: 0.054 }
+  };
+
+  var palettes = {
+    blue: function(a, b) {
+      var v = b * 3;
+      return [v * 40 | 0, v * 80 | 0, 20 + v * 200 | 0];
+    },
+    fire: function(a, b) {
+      var v = b * 3;
+      if (v < 0.5) return [v * 400 | 0, 0, 0];
+      if (v < 0.8) return [200 + v * 60 | 0, (v - 0.5) * 600 | 0, 0];
+      return [255, 180 + v * 80 | 0, (v - 0.8) * 800 | 0];
+    },
+    ocean: function(a, b) {
+      var v = b * 3;
+      return [v * 20 | 0, 40 + v * 100 | 0, 60 + v * 180 | 0];
+    },
+    bw: function(a, b) {
+      var v = (1 - b * 2.5) * 255 | 0;
+      if (v < 0) v = 0;
+      if (v > 255) v = 255;
+      return [v, v, v];
+    }
+  };
+
+  function initGrid() {
+    gridA = new Float32Array(W * H);
+    gridB = new Float32Array(W * H);
+    nextA = new Float32Array(W * H);
+    nextB = new Float32Array(W * H);
+    // Fill A = 1, B = 0
+    for (var i = 0; i < W * H; i++) {
+      gridA[i] = 1.0;
+      gridB[i] = 0.0;
+    }
+    // Seed: several random squares of B
+    for (var s = 0; s < 5; s++) {
+      var sx = (Math.random() * (W - 20) + 10) | 0;
+      var sy = (Math.random() * (H - 20) + 10) | 0;
+      var size = 4 + (Math.random() * 6) | 0;
+      for (var dy = -size; dy <= size; dy++) {
+        for (var dx = -size; dx <= size; dx++) {
+          var x = sx + dx, y = sy + dy;
+          if (x >= 0 && x < W && y >= 0 && y < H) {
+            gridB[y * W + x] = 1.0;
+            gridA[y * W + x] = 0.0;
+          }
+        }
+      }
+    }
+    stepCount = 0;
+  }
+
+  function laplacian(grid, x, y) {
+    var center = grid[y * W + x];
+    var sum = 0;
+    // Wrap-around
+    var xm = x > 0 ? x - 1 : W - 1;
+    var xp = x < W - 1 ? x + 1 : 0;
+    var ym = y > 0 ? y - 1 : H - 1;
+    var yp = y < H - 1 ? y + 1 : 0;
+    sum += grid[y * W + xm] * 0.2;
+    sum += grid[y * W + xp] * 0.2;
+    sum += grid[ym * W + x] * 0.2;
+    sum += grid[yp * W + x] * 0.2;
+    sum += grid[ym * W + xm] * 0.05;
+    sum += grid[ym * W + xp] * 0.05;
+    sum += grid[yp * W + xm] * 0.05;
+    sum += grid[yp * W + xp] * 0.05;
+    sum -= center;
+    return sum;
+  }
+
+  function simulate() {
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var idx = y * W + x;
+        var a = gridA[idx];
+        var b = gridB[idx];
+        var la = laplacian(gridA, x, y);
+        var lb = laplacian(gridB, x, y);
+        var ab2 = a * b * b;
+        nextA[idx] = a + (dA * la - ab2 + f * (1.0 - a)) * dt;
+        nextB[idx] = b + (dB * lb + ab2 - (k + f) * b) * dt;
+        // Clamp
+        if (nextA[idx] < 0) nextA[idx] = 0;
+        if (nextA[idx] > 1) nextA[idx] = 1;
+        if (nextB[idx] < 0) nextB[idx] = 0;
+        if (nextB[idx] > 1) nextB[idx] = 1;
+      }
+    }
+    // Swap
+    var tmpA = gridA; gridA = nextA; nextA = tmpA;
+    var tmpB = gridB; gridB = nextB; nextB = tmpB;
+    stepCount++;
+  }
+
+  function render() {
+    var imgData = ctx.createImageData(W, H);
+    var data = imgData.data;
+    var palFn = palettes[currentPalette];
+    for (var i = 0; i < W * H; i++) {
+      var col = palFn(gridA[i], gridB[i]);
+      var idx = i * 4;
+      data[idx] = col[0];
+      data[idx + 1] = col[1];
+      data[idx + 2] = col[2];
+      data[idx + 3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  var lastTime = performance.now();
+  var frameCount = 0;
+
+  function loop() {
+    if (!paused) {
+      for (var i = 0; i < stepsPerFrame; i++) {
+        simulate();
+      }
+      render();
+      document.getElementById('info-step').textContent = 'шаг: ' + stepCount;
+    }
+    frameCount++;
+    var now = performance.now();
+    if (now - lastTime >= 1000) {
+      document.getElementById('info-fps').textContent = 'fps: ' + frameCount;
+      frameCount = 0;
+      lastTime = now;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // Mouse: draw B substance
+  var drawing = false;
+  function addB(mx, my, radius) {
+    for (var dy = -radius; dy <= radius; dy++) {
+      for (var dx = -radius; dx <= radius; dx++) {
+        if (dx * dx + dy * dy <= radius * radius) {
+          var x = mx + dx, y = my + dy;
+          if (x >= 0 && x < W && y >= 0 && y < H) {
+            gridB[y * W + x] = 1.0;
+            gridA[y * W + x] = 0.0;
+          }
+        }
+      }
+    }
+  }
+
+  canvas.addEventListener('mousedown', function(e) { drawing = true; paintAt(e); });
+  canvas.addEventListener('mousemove', function(e) { if (drawing) paintAt(e); });
+  canvas.addEventListener('mouseup', function() { drawing = false; });
+  canvas.addEventListener('mouseleave', function() { drawing = false; });
+
+  function paintAt(e) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = ((e.clientX - rect.left) / rect.width * W) | 0;
+    var my = ((e.clientY - rect.top) / rect.height * H) | 0;
+    addB(mx, my, 3);
+  }
+
+  // Touch support
+  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); drawing = true; touchPaint(e); });
+  canvas.addEventListener('touchmove', function(e) { e.preventDefault(); if (drawing) touchPaint(e); });
+  canvas.addEventListener('touchend', function() { drawing = false; });
+
+  function touchPaint(e) {
+    var touch = e.touches[0];
+    var rect = canvas.getBoundingClientRect();
+    var mx = ((touch.clientX - rect.left) / rect.width * W) | 0;
+    var my = ((touch.clientY - rect.top) / rect.height * H) | 0;
+    addB(mx, my, 3);
+  }
+
+  // Controls
+  document.getElementById('feed').addEventListener('input', function() {
+    f = +this.value / 1000;
+    document.getElementById('v-feed').textContent = f.toFixed(3);
+  });
+  document.getElementById('kill').addEventListener('input', function() {
+    k = +this.value / 1000;
+    document.getElementById('v-kill').textContent = k.toFixed(3);
+  });
+  document.getElementById('da').addEventListener('input', function() {
+    dA = +this.value / 10;
+    document.getElementById('v-da').textContent = dA.toFixed(1);
+  });
+  document.getElementById('db').addEventListener('input', function() {
+    dB = +this.value / 10;
+    document.getElementById('v-db').textContent = dB.toFixed(1);
+  });
+  document.getElementById('spf').addEventListener('input', function() {
+    stepsPerFrame = +this.value;
+    document.getElementById('v-spf').textContent = this.value;
+  });
+
+  // Preset buttons
+  document.querySelectorAll('[data-preset]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('[data-preset]').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      var p = presets[this.dataset.preset];
+      f = p.f; k = p.k;
+      document.getElementById('feed').value = f * 1000;
+      document.getElementById('v-feed').textContent = f.toFixed(3);
+      document.getElementById('kill').value = k * 1000;
+      document.getElementById('v-kill').textContent = k.toFixed(3);
+      initGrid();
+    });
+  });
+
+  // Palette buttons
+  document.querySelectorAll('[data-palette]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('[data-palette]').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentPalette = this.dataset.palette;
+    });
+  });
+
+  // Action buttons
+  document.getElementById('btn-reset').addEventListener('click', function() { initGrid(); });
+  document.getElementById('btn-pause').addEventListener('click', function() {
+    paused = !paused;
+    this.textContent = paused ? 'запуск' : 'пауза';
+  });
+  document.getElementById('btn-save').addEventListener('click', function() {
+    // Render at full res to a temp canvas
+    var tmp = document.createElement('canvas');
+    tmp.width = W; tmp.height = H;
+    var tctx = tmp.getContext('2d');
+    tctx.drawImage(canvas, 0, 0);
+    var link = document.createElement('a');
+    link.download = 'reaction-diffusion.png';
+    link.href = tmp.toDataURL('image/png');
+    link.click();
+  });
+
+  // Init
+  initGrid();
+  loop();
+})();
+</script>

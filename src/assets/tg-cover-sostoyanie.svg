@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- State machine diagram -->
+  <g fill="none" stroke="#7b8cde" stroke-width="1.2">
+    <!-- States as circles -->
+    <circle cx="200" cy="150" r="35" opacity="0.3"/>
+    <circle cx="400" cy="150" r="35" opacity="0.6"/>
+    <circle cx="600" cy="150" r="35" opacity="0.4"/>
+    <circle cx="400" cy="280" r="35" opacity="0.3"/>
+    <!-- Arrows -->
+    <line x1="238" y1="150" x2="362" y2="150" opacity="0.4"/>
+    <polygon points="360,145 370,150 360,155" fill="#7b8cde" opacity="0.4"/>
+    <line x1="438" y1="150" x2="562" y2="150" opacity="0.4"/>
+    <polygon points="560,145 570,150 560,155" fill="#7b8cde" opacity="0.4"/>
+    <line x1="415" y1="183" x2="415" y2="243" opacity="0.3"/>
+    <polygon points="410,241 415,251 420,241" fill="#7b8cde" opacity="0.3"/>
+    <!-- Retry arrow back -->
+    <path d="M370,280 C300,280 240,220 240,180" opacity="0.2"/>
+    <polygon points="237,185 240,175 245,185" fill="#7b8cde" opacity="0.2"/>
+  </g>
+  <!-- State labels -->
+  <g font-family="monospace" font-size="11" fill="#7b8cde" text-anchor="middle">
+    <text x="200" y="154" opacity="0.5">idle</text>
+    <text x="400" y="154" opacity="0.8">loading</text>
+    <text x="600" y="154" opacity="0.6">ready</text>
+    <text x="400" y="284" opacity="0.4">error</text>
+  </g>
+  <!-- Title -->
+  <text x="400" y="340" text-anchor="middle" font-family="monospace" font-size="20" fill="#7b8cde">как я думаю о состоянии</text>
+  <text x="400" y="366" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">переменная изменилась. где? когда? кем?</text>
+  <text x="400" y="390" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal</text>
+</svg>
