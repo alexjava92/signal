@@ -1,0 +1,321 @@
+---
+layout: base.njk
+title: "Марковские цепи"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Марковские цепи<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Простейшая модель языка. Загрузите текст — и алгоритм научится генерировать похожий. Порядок цепи определяет, сколько предыдущих слов влияют на следующее.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <div class="markov-layout">
+    <div class="markov-input">
+      <label>исходный текст:</label>
+      <textarea id="source" rows="8" placeholder="Вставьте текст для обучения..."></textarea>
+      <div class="input-actions">
+        <div class="preset-buttons">
+          <button class="preset-btn" data-corpus="pushkin">Пушкин</button>
+          <button class="preset-btn" data-corpus="code">код</button>
+          <button class="preset-btn" data-corpus="wiki">энциклопедия</button>
+        </div>
+        <button id="btn-train" class="action-btn">обучить</button>
+      </div>
+    </div>
+
+    <div class="markov-controls">
+      <div class="control-group">
+        <label>порядок цепи: <span id="v-order">2</span></label>
+        <input type="range" id="order" min="1" max="5" value="2" step="1">
+      </div>
+      <div class="control-group">
+        <label>длина (слов): <span id="v-length">50</span></label>
+        <input type="range" id="length" min="10" max="200" value="50" step="10">
+      </div>
+      <div class="control-group">
+        <button id="btn-generate" class="action-btn" disabled>сгенерировать</button>
+      </div>
+    </div>
+
+    <div class="markov-output">
+      <label>результат:</label>
+      <div id="output" class="output-box">обучите модель, чтобы начать генерацию</div>
+    </div>
+
+    <div class="markov-stats">
+      <label>статистика модели:</label>
+      <div id="stats" class="stats-box">
+        <span class="stat">состояний: <b id="s-states">—</b></span>
+        <span class="stat">переходов: <b id="s-transitions">—</b></span>
+        <span class="stat">слов в корпусе: <b id="s-words">—</b></span>
+        <span class="stat">уникальных: <b id="s-unique">—</b></span>
+      </div>
+    </div>
+
+    <div class="markov-vis">
+      <label>граф переходов (топ-20 состояний):</label>
+      <canvas id="canvas" width="800" height="300"></canvas>
+    </div>
+  </div>
+</div>
+
+<style>
+  .lab-container { margin-top: 24px; }
+  .markov-layout { display: flex; flex-direction: column; gap: 16px; }
+  .markov-input label, .markov-output label, .markov-stats label, .markov-vis label {
+    font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); display: block; margin-bottom: 6px;
+  }
+  #source {
+    width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-family: var(--sans); font-size: 0.85rem; padding: 12px;
+    resize: vertical; min-height: 80px;
+  }
+  #source:focus { outline: none; border-color: var(--accent); }
+  #source::placeholder { color: var(--text-dim); }
+  .input-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .markov-controls {
+    display: flex; flex-wrap: wrap; gap: 16px; padding: 16px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+  .control-group label { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  .control-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .preset-buttons { display: flex; gap: 6px; }
+  .preset-btn {
+    font-family: var(--mono); font-size: 0.7rem; padding: 4px 10px;
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn {
+    font-family: var(--mono); font-size: 0.75rem; padding: 6px 14px;
+    background: rgba(123,140,222,0.1); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(123,140,222,0.2); }
+  .action-btn:disabled { opacity: 0.3; cursor: default; }
+  .output-box {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+    padding: 16px; font-family: var(--sans); font-size: 0.9rem; color: var(--text);
+    line-height: 1.7; min-height: 60px;
+  }
+  .stats-box {
+    display: flex; flex-wrap: wrap; gap: 16px; padding: 12px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  }
+  .stat { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  .stat b { color: var(--accent); }
+  #canvas {
+    width: 100%; height: auto; display: block;
+    border: 1px solid var(--border); border-radius: 4px; background: #0a0a0f;
+  }
+  .word-highlight { color: var(--accent); font-weight: bold; }
+</style>
+
+<script>
+(function() {
+  var corpora = {
+    pushkin: 'Мой дядя самых честных правил, когда не в шутку занемог, он уважать себя заставил и лучше выдумать не мог. Его пример другим наука; но, боже мой, какая скука с больным сидеть и день и ночь, не отходя ни шагу прочь! Какое низкое коварство полуживого забавлять, ему подушки поправлять, печально подносить лекарство, вздыхать и думать про себя: когда же чёрт возьмёт тебя! Так думал молодой повеса, летя в пыли на почтовых, всевышней волею Зевеса наследник всех своих родных. Друзья Людмилы и Руслана! С героем моего романа без предисловий, сей же час позвольте познакомить вас. Онегин, добрый мой приятель, родился на брегах Невы, где, может быть, родились вы или блистали, мой читатель. Там некогда гулял и я: но вреден север для меня.',
+    code: 'function fibonacci(n) { if (n <= 1) return n; return fibonacci(n - 1) + fibonacci(n - 2); } function factorial(n) { if (n <= 1) return 1; return n * factorial(n - 1); } function isPrime(n) { if (n <= 1) return false; for (let i = 2; i * i <= n; i++) { if (n % i === 0) return false; } return true; } function binarySearch(arr, target) { let left = 0; let right = arr.length - 1; while (left <= right) { let mid = Math.floor((left + right) / 2); if (arr[mid] === target) return mid; if (arr[mid] < target) left = mid + 1; else right = mid - 1; } return -1; }',
+    wiki: 'Алгоритм — это конечная последовательность точно определённых инструкций для решения класса задач или выполнения вычисления. Алгоритмы используются в качестве спецификации для выполнения вычислений и обработки данных. Более продвинутые алгоритмы могут использовать условные переходы и циклы для автоматизации повторяющихся задач. Использование алгоритмов является основополагающей характеристикой компьютерных программ. Слово алгоритм происходит от имени персидского математика Мухаммеда ибн Мусы аль-Хорезми. Евклидов алгоритм для нахождения наибольшего общего делителя двух чисел является одним из старейших алгоритмов, используемых до сих пор. Он был описан Евклидом около 300 года до нашей эры.'
+  };
+
+  var chain = {};
+  var starts = [];
+  var order = 2;
+  var genLength = 50;
+  var trained = false;
+
+  function tokenize(text) {
+    return text.split(/\s+/).filter(function(w) { return w.length > 0; });
+  }
+
+  function train(text) {
+    var words = tokenize(text);
+    chain = {};
+    starts = [];
+
+    if (words.length < order + 1) return;
+
+    for (var i = 0; i <= words.length - order; i++) {
+      var key = words.slice(i, i + order).join(' ');
+      var next = words[i + order] || null;
+
+      if (i === 0 || (i > 0 && /[.!?]$/.test(words[i - 1]))) {
+        starts.push(key);
+      }
+
+      if (next) {
+        if (!chain[key]) chain[key] = [];
+        chain[key].push(next);
+      }
+    }
+
+    if (starts.length === 0) {
+      starts.push(words.slice(0, order).join(' '));
+    }
+
+    trained = true;
+
+    // Stats
+    var keys = Object.keys(chain);
+    var totalTransitions = 0;
+    for (var k = 0; k < keys.length; k++) totalTransitions += chain[keys[k]].length;
+    var unique = {};
+    for (var w = 0; w < words.length; w++) unique[words[w]] = true;
+
+    document.getElementById('s-states').textContent = keys.length;
+    document.getElementById('s-transitions').textContent = totalTransitions;
+    document.getElementById('s-words').textContent = words.length;
+    document.getElementById('s-unique').textContent = Object.keys(unique).length;
+    document.getElementById('btn-generate').disabled = false;
+
+    drawGraph();
+  }
+
+  function generate() {
+    if (!trained || starts.length === 0) return '';
+    var start = starts[Math.random() * starts.length | 0];
+    var result = start.split(' ');
+
+    for (var i = 0; i < genLength - order; i++) {
+      var key = result.slice(result.length - order).join(' ');
+      var options = chain[key];
+      if (!options || options.length === 0) {
+        // Try random restart
+        start = starts[Math.random() * starts.length | 0];
+        result.push('—');
+        result = result.concat(start.split(' '));
+        continue;
+      }
+      result.push(options[Math.random() * options.length | 0]);
+    }
+
+    return result.join(' ');
+  }
+
+  function drawGraph() {
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, W, H);
+
+    // Get top states by number of transitions
+    var keys = Object.keys(chain);
+    keys.sort(function(a, b) { return chain[b].length - chain[a].length; });
+    var top = keys.slice(0, 20);
+
+    if (top.length === 0) return;
+
+    // Position nodes in a circle
+    var cx = W / 2, cy = H / 2;
+    var rx = W * 0.38, ry = H * 0.35;
+    var positions = {};
+    for (var i = 0; i < top.length; i++) {
+      var angle = (i / top.length) * Math.PI * 2 - Math.PI / 2;
+      positions[top[i]] = { x: cx + Math.cos(angle) * rx, y: cy + Math.sin(angle) * ry };
+    }
+
+    // Draw edges
+    var maxWeight = 1;
+    for (var i = 0; i < top.length; i++) {
+      var options = chain[top[i]];
+      // Count transitions to other top states
+      var counts = {};
+      for (var j = 0; j < options.length; j++) {
+        // Check if this leads to any top key
+        for (var k = 0; k < top.length; k++) {
+          var topWords = top[k].split(' ');
+          if (topWords[0] === options[j]) {
+            counts[top[k]] = (counts[top[k]] || 0) + 1;
+            if (counts[top[k]] > maxWeight) maxWeight = counts[top[k]];
+          }
+        }
+      }
+    }
+
+    // Draw edges
+    for (var i = 0; i < top.length; i++) {
+      var options = chain[top[i]];
+      var counts = {};
+      for (var j = 0; j < options.length; j++) {
+        for (var k = 0; k < top.length; k++) {
+          var topWords = top[k].split(' ');
+          if (topWords[0] === options[j]) {
+            counts[top[k]] = (counts[top[k]] || 0) + 1;
+          }
+        }
+      }
+      var from = positions[top[i]];
+      for (var target in counts) {
+        var to = positions[target];
+        if (!to) continue;
+        var weight = counts[target] / maxWeight;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = 'rgba(123, 140, 222, ' + (weight * 0.4) + ')';
+        ctx.lineWidth = 0.5 + weight * 2;
+        ctx.stroke();
+      }
+    }
+
+    // Draw nodes
+    for (var i = 0; i < top.length; i++) {
+      var p = positions[top[i]];
+      var size = 3 + (chain[top[i]].length / chain[top[0]].length) * 5;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(123, 140, 222, 0.6)';
+      ctx.fill();
+
+      // Label
+      var label = top[i];
+      if (label.length > 15) label = label.substring(0, 14) + '…';
+      ctx.font = '9px monospace';
+      ctx.fillStyle = 'rgba(180, 185, 210, 0.7)';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, p.x, p.y - size - 4);
+    }
+  }
+
+  // Event handlers
+  document.getElementById('order').addEventListener('input', function() {
+    order = +this.value;
+    document.getElementById('v-order').textContent = this.value;
+  });
+
+  document.getElementById('length').addEventListener('input', function() {
+    genLength = +this.value;
+    document.getElementById('v-length').textContent = this.value;
+  });
+
+  document.querySelectorAll('[data-corpus]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById('source').value = corpora[this.dataset.corpus];
+    });
+  });
+
+  document.getElementById('btn-train').addEventListener('click', function() {
+    var text = document.getElementById('source').value.trim();
+    if (!text) return;
+    train(text);
+    document.getElementById('output').textContent = 'модель обучена. нажмите «сгенерировать».';
+  });
+
+  document.getElementById('btn-generate').addEventListener('click', function() {
+    if (!trained) return;
+    var text = generate();
+    document.getElementById('output').textContent = text;
+  });
+
+  // Auto-load Pushkin on start
+  document.getElementById('source').value = corpora.pushkin;
+})();
+</script>
