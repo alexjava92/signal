@@ -1,0 +1,424 @@
+---
+layout: base.njk
+title: "Конечные автоматы"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Конечные автоматы<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Визуальный playground для DFA. Выберите пресет или постройте свой автомат. Введите строку — и наблюдайте, как машина обрабатывает её символ за символом.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <canvas id="canvas" width="800" height="400"></canvas>
+
+  <div class="fsm-input-row">
+    <label>строка:</label>
+    <input type="text" id="input-str" value="aabb" placeholder="введите строку...">
+    <button id="btn-step" class="action-btn">шаг</button>
+    <button id="btn-run" class="action-btn">запуск</button>
+    <button id="btn-reset-input" class="action-btn">сброс</button>
+    <span id="result-tag" class="result-tag"></span>
+  </div>
+
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>пресеты:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-preset="binary-even">чётное число 0</button>
+        <button class="preset-btn" data-preset="ends-ab">кончается на «ab»</button>
+        <button class="preset-btn" data-preset="divisible3">делится на 3</button>
+        <button class="preset-btn" data-preset="no-consecutive">без двух «a» подряд</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>скорость:</label>
+      <input type="range" id="speed" min="1" max="10" value="3" step="1">
+    </div>
+  </div>
+
+  <div class="fsm-description" id="fsm-desc"></div>
+</div>
+
+<style>
+  .lab-container { margin-top: 24px; }
+  #canvas {
+    width: 100%; height: auto; display: block;
+    border: 1px solid var(--border); border-radius: 4px; background: #0a0a0f;
+  }
+  .fsm-input-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+  }
+  .fsm-input-row label { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  #input-str {
+    font-family: var(--mono); font-size: 0.9rem; padding: 6px 12px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); min-width: 160px; flex: 1;
+  }
+  #input-str:focus { outline: none; border-color: var(--accent); }
+  .result-tag {
+    font-family: var(--mono); font-size: 0.75rem; padding: 4px 10px;
+    border-radius: 3px; min-width: 80px; text-align: center;
+  }
+  .result-tag.accept { background: rgba(80,200,120,0.15); color: #50c878; border: 1px solid rgba(80,200,120,0.3); }
+  .result-tag.reject { background: rgba(200,80,80,0.15); color: #c85050; border: 1px solid rgba(200,80,80,0.3); }
+  .result-tag.running { background: rgba(123,140,222,0.15); color: var(--accent); border: 1px solid rgba(123,140,222,0.3); }
+  .lab-controls {
+    display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; padding: 16px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+  .control-group label { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  .control-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .preset-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    font-family: var(--mono); font-size: 0.7rem; padding: 4px 10px;
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(123,140,222,0.1); }
+  .action-btn {
+    font-family: var(--mono); font-size: 0.75rem; padding: 6px 14px;
+    background: rgba(123,140,222,0.1); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(123,140,222,0.2); }
+  .fsm-description {
+    margin-top: 12px; font-family: var(--mono); font-size: 0.8rem; color: var(--text-dim);
+    padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+    line-height: 1.6;
+  }
+</style>
+
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  // FSM definition: { states, transitions, start, accept, description, defaultInput, positions }
+  var presets = {
+    'binary-even': {
+      states: ['q0', 'q1'],
+      transitions: { 'q0': { '0': 'q0', '1': 'q1' }, 'q1': { '0': 'q0', '1': 'q1' } },
+      start: 'q0',
+      accept: ['q0'],
+      description: 'Принимает двоичные строки с чётным числом единиц (или без единиц). Алфавит: {0, 1}.',
+      defaultInput: '110100',
+      positions: { 'q0': { x: 300, y: 200 }, 'q1': { x: 500, y: 200 } }
+    },
+    'ends-ab': {
+      states: ['q0', 'q1', 'q2'],
+      transitions: {
+        'q0': { 'a': 'q1', 'b': 'q0' },
+        'q1': { 'a': 'q1', 'b': 'q2' },
+        'q2': { 'a': 'q1', 'b': 'q0' }
+      },
+      start: 'q0',
+      accept: ['q2'],
+      description: 'Принимает строки над {a, b}, которые заканчиваются на «ab».',
+      defaultInput: 'aababab',
+      positions: { 'q0': { x: 200, y: 200 }, 'q1': { x: 400, y: 200 }, 'q2': { x: 600, y: 200 } }
+    },
+    'divisible3': {
+      states: ['r0', 'r1', 'r2'],
+      transitions: {
+        'r0': { '0': 'r0', '1': 'r1' },
+        'r1': { '0': 'r2', '1': 'r0' },
+        'r2': { '0': 'r1', '1': 'r2' }
+      },
+      start: 'r0',
+      accept: ['r0'],
+      description: 'Принимает двоичные числа, делящиеся на 3. Состояние = остаток от деления. Алфавит: {0, 1}.',
+      defaultInput: '110',
+      positions: { 'r0': { x: 400, y: 120 }, 'r1': { x: 250, y: 300 }, 'r2': { x: 550, y: 300 } }
+    },
+    'no-consecutive': {
+      states: ['s0', 's1', 'dead'],
+      transitions: {
+        's0': { 'a': 's1', 'b': 's0' },
+        's1': { 'a': 'dead', 'b': 's0' },
+        'dead': { 'a': 'dead', 'b': 'dead' }
+      },
+      start: 's0',
+      accept: ['s0', 's1'],
+      description: 'Принимает строки над {a, b} без двух «a» подряд. «dead» — ловушка (нет выхода).',
+      defaultInput: 'ababba',
+      positions: { 's0': { x: 200, y: 200 }, 's1': { x: 450, y: 200 }, 'dead': { x: 650, y: 200 } }
+    }
+  };
+
+  var currentFSM = null;
+  var currentState = null;
+  var inputStr = '';
+  var inputPos = -1;
+  var running = false;
+  var runTimer = null;
+  var speed = 3;
+
+  function loadPreset(name) {
+    var p = presets[name];
+    currentFSM = p;
+    currentState = null;
+    inputPos = -1;
+    running = false;
+    if (runTimer) clearInterval(runTimer);
+    document.getElementById('input-str').value = p.defaultInput;
+    document.getElementById('result-tag').textContent = '';
+    document.getElementById('result-tag').className = 'result-tag';
+    document.getElementById('fsm-desc').textContent = p.description;
+    draw();
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, W, H);
+    if (!currentFSM) return;
+
+    var fsm = currentFSM;
+    var pos = fsm.positions;
+
+    // Draw transitions
+    for (var from in fsm.transitions) {
+      for (var sym in fsm.transitions[from]) {
+        var to = fsm.transitions[from][sym];
+        var fp = pos[from], tp = pos[to];
+        if (!fp || !tp) continue;
+
+        if (from === to) {
+          // Self-loop
+          ctx.beginPath();
+          ctx.arc(fp.x, fp.y - 45, 18, 0.3 * Math.PI, 0.7 * Math.PI);
+          ctx.strokeStyle = '#3a3a5a';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          // Label
+          ctx.font = '12px monospace';
+          ctx.fillStyle = '#7b8cde';
+          ctx.textAlign = 'center';
+          ctx.fillText(sym, fp.x, fp.y - 68);
+        } else {
+          // Check for reverse edge
+          var hasReverse = fsm.transitions[to] && Object.values(fsm.transitions[to]).indexOf(from) >= 0;
+          var dx = tp.x - fp.x, dy = tp.y - fp.y;
+          var len = Math.sqrt(dx * dx + dy * dy);
+          var nx = -dy / len, ny = dx / len;
+          var offset = hasReverse ? 12 : 0;
+
+          var x1 = fp.x + nx * offset, y1 = fp.y + ny * offset;
+          var x2 = tp.x + nx * offset, y2 = tp.y + ny * offset;
+
+          // Shorten to edge of circles
+          var r = 28;
+          var ax = dx / len, ay = dy / len;
+          x1 += ax * r; y1 += ay * r;
+          x2 -= ax * r; y2 -= ay * r;
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = '#3a3a5a';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Arrow
+          var aLen = 8;
+          var angle = Math.atan2(y2 - y1, x2 - x1);
+          ctx.beginPath();
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - aLen * Math.cos(angle - 0.4), y2 - aLen * Math.sin(angle - 0.4));
+          ctx.lineTo(x2 - aLen * Math.cos(angle + 0.4), y2 - aLen * Math.sin(angle + 0.4));
+          ctx.closePath();
+          ctx.fillStyle = '#3a3a5a';
+          ctx.fill();
+
+          // Label
+          var mx = (x1 + x2) / 2 + nx * 14;
+          var my = (y1 + y2) / 2 + ny * 14;
+          ctx.font = '12px monospace';
+          ctx.fillStyle = '#7b8cde';
+          ctx.textAlign = 'center';
+          ctx.fillText(sym, mx, my + 4);
+        }
+      }
+    }
+
+    // Draw states
+    for (var i = 0; i < fsm.states.length; i++) {
+      var name = fsm.states[i];
+      var p = pos[name];
+      if (!p) continue;
+      var isAccept = fsm.accept.indexOf(name) >= 0;
+      var isCurrent = name === currentState;
+      var isStart = name === fsm.start;
+
+      // Circle
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
+      if (isCurrent) {
+        ctx.fillStyle = 'rgba(123,140,222,0.2)';
+        ctx.fill();
+        ctx.strokeStyle = '#7b8cde';
+        ctx.lineWidth = 2.5;
+      } else {
+        ctx.fillStyle = 'rgba(20,20,30,0.8)';
+        ctx.fill();
+        ctx.strokeStyle = '#4a4a6a';
+        ctx.lineWidth = 1.5;
+      }
+      ctx.stroke();
+
+      // Double circle for accept
+      if (isAccept) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
+        ctx.strokeStyle = isCurrent ? '#7b8cde' : '#4a4a6a';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Start arrow
+      if (isStart) {
+        ctx.beginPath();
+        ctx.moveTo(p.x - 55, p.y);
+        ctx.lineTo(p.x - 30, p.y);
+        ctx.strokeStyle = '#5a5a7a';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(p.x - 30, p.y);
+        ctx.lineTo(p.x - 38, p.y - 5);
+        ctx.lineTo(p.x - 38, p.y + 5);
+        ctx.closePath();
+        ctx.fillStyle = '#5a5a7a';
+        ctx.fill();
+      }
+
+      // Label
+      ctx.font = '13px monospace';
+      ctx.fillStyle = isCurrent ? '#c0c8ee' : '#8a8aaa';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(name, p.x, p.y);
+    }
+
+    // Draw input string at top
+    if (inputStr) {
+      var startX = W / 2 - (inputStr.length * 14) / 2;
+      for (var i = 0; i < inputStr.length; i++) {
+        var cx = startX + i * 14 + 7;
+        ctx.font = '14px monospace';
+        if (i < inputPos) {
+          ctx.fillStyle = 'rgba(123,140,222,0.3)'; // processed
+        } else if (i === inputPos) {
+          ctx.fillStyle = '#7b8cde'; // current
+          // Underline
+          ctx.fillRect(cx - 5, 42, 10, 2);
+        } else {
+          ctx.fillStyle = '#5a5a6a'; // pending
+        }
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(inputStr[i], cx, 25);
+      }
+    }
+
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  function resetExecution() {
+    if (runTimer) clearInterval(runTimer);
+    running = false;
+    inputStr = document.getElementById('input-str').value;
+    inputPos = -1;
+    currentState = null;
+    document.getElementById('result-tag').textContent = '';
+    document.getElementById('result-tag').className = 'result-tag';
+    draw();
+  }
+
+  function step() {
+    if (!currentFSM) return false;
+    if (inputPos === -1) {
+      // Start
+      currentState = currentFSM.start;
+      inputStr = document.getElementById('input-str').value;
+      inputPos = 0;
+      document.getElementById('result-tag').textContent = 'выполняется...';
+      document.getElementById('result-tag').className = 'result-tag running';
+      draw();
+      return true;
+    }
+
+    if (inputPos >= inputStr.length) {
+      // Done — check if accept
+      var accepted = currentFSM.accept.indexOf(currentState) >= 0;
+      var tag = document.getElementById('result-tag');
+      tag.textContent = accepted ? 'принято ✓' : 'отклонено ✗';
+      tag.className = 'result-tag ' + (accepted ? 'accept' : 'reject');
+      running = false;
+      if (runTimer) clearInterval(runTimer);
+      draw();
+      return false;
+    }
+
+    var sym = inputStr[inputPos];
+    var transitions = currentFSM.transitions[currentState];
+    if (transitions && transitions[sym]) {
+      currentState = transitions[sym];
+      inputPos++;
+    } else {
+      // No transition — reject
+      var tag = document.getElementById('result-tag');
+      tag.textContent = 'отклонено (нет перехода для «' + sym + '»)';
+      tag.className = 'result-tag reject';
+      running = false;
+      if (runTimer) clearInterval(runTimer);
+    }
+    draw();
+    return inputPos < inputStr.length;
+  }
+
+  // Controls
+  document.getElementById('btn-step').addEventListener('click', function() {
+    if (running) return;
+    step();
+  });
+
+  document.getElementById('btn-run').addEventListener('click', function() {
+    if (running) return;
+    if (inputPos === -1) step(); // init
+    running = true;
+    var interval = 600 - speed * 50;
+    runTimer = setInterval(function() {
+      if (!step()) {
+        clearInterval(runTimer);
+        running = false;
+      }
+    }, interval);
+  });
+
+  document.getElementById('btn-reset-input').addEventListener('click', resetExecution);
+
+  document.getElementById('speed').addEventListener('input', function() {
+    speed = +this.value;
+  });
+
+  document.querySelectorAll('[data-preset]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('[data-preset]').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      loadPreset(this.dataset.preset);
+    });
+  });
+
+  document.getElementById('input-str').addEventListener('input', resetExecution);
+
+  // Init
+  loadPreset('binary-even');
+})();
+</script>
