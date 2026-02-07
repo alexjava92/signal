@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Cities -->
+  <g fill="#de7b7b">
+    <circle cx="200" cy="100" r="4" opacity="0.7"/>
+    <circle cx="350" cy="80" r="4" opacity="0.7"/>
+    <circle cx="500" cy="120" r="4" opacity="0.7"/>
+    <circle cx="550" cy="200" r="4" opacity="0.7"/>
+    <circle cx="450" cy="180" r="4" opacity="0.7"/>
+    <circle cx="300" cy="190" r="4" opacity="0.7"/>
+    <circle cx="180" cy="170" r="4" opacity="0.7"/>
+    <circle cx="250" cy="140" r="4" opacity="0.7"/>
+    <circle cx="400" cy="130" r="4" opacity="0.7"/>
+    <circle cx="600" cy="150" r="4" opacity="0.7"/>
+  </g>
+  <!-- Bad route (dim) -->
+  <polyline points="200,100 500,120 250,140 550,200 180,170 350,80 300,190 600,150 400,130 450,180 200,100"
+    fill="none" stroke="#7b8cde" stroke-width="0.5" opacity="0.15"/>
+  <!-- Good route (bright green) -->
+  <polyline points="200,100 250,140 350,80 400,130 500,120 600,150 550,200 450,180 300,190 180,170 200,100"
+    fill="none" stroke="#5de6a0" stroke-width="1.2" opacity="0.5"/>
+  <!-- Fitness curve hint -->
+  <path d="M 150 230 Q 250 228, 350 215 Q 450 200, 600 198"
+    fill="none" stroke="#5de6a0" stroke-width="0.8" opacity="0.3"/>
+  <!-- Title -->
+  <text x="400" y="290" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">эволюционный алгоритм</text>
+  <text x="400" y="318" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">задача коммивояжёра</text>
+  <text x="400" y="370" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal/lab</text>
+</svg>

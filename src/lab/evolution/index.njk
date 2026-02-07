@@ -1,0 +1,590 @@
+---
+layout: base.njk
+title: "Эволюционный алгоритм"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Эволюционный алгоритм<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Задача коммивояжёра (TSP) — найти кратчайший маршрут через все города. NP-трудная задача. Генетический алгоритм не гарантирует идеал, но находит хорошие решения, наблюдая за эволюцией популяции.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <div class="evo-layout">
+    <canvas id="canvas" width="600" height="500"></canvas>
+    <div class="evo-side">
+      <canvas id="chart" width="280" height="180"></canvas>
+      <div class="evo-stats">
+        <div>поколение: <span id="s-gen">0</span></div>
+        <div>лучший путь: <span id="s-best">—</span></div>
+        <div>средний: <span id="s-avg">—</span></div>
+        <div>популяция: <span id="s-pop">—</span></div>
+        <div>мутация: <span id="s-mut">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>города: <span id="v-cities">20</span></label>
+      <input type="range" id="r-cities" min="8" max="50" value="20" step="1">
+    </div>
+    <div class="control-group">
+      <label>популяция: <span id="v-pop">100</span></label>
+      <input type="range" id="r-pop" min="20" max="500" value="100" step="20">
+    </div>
+    <div class="control-group">
+      <label>мутация: <span id="v-mut">2</span>%</label>
+      <input type="range" id="r-mut" min="0.5" max="10" value="2" step="0.5">
+    </div>
+    <div class="control-group">
+      <label>элитизм: <span id="v-elite">5</span>%</label>
+      <input type="range" id="r-elite" min="1" max="20" value="5" step="1">
+    </div>
+    <div class="control-group">
+      <label>скорость: <span id="v-speed">10</span> поколений/кадр</label>
+      <input type="range" id="r-speed" min="1" max="50" value="10" step="1">
+    </div>
+  </div>
+
+  <div class="evo-actions">
+    <div class="preset-buttons">
+      <button class="preset-btn" data-preset="circle">круг</button>
+      <button class="preset-btn" data-preset="clusters">кластеры</button>
+      <button class="preset-btn active" data-preset="random">случайные</button>
+      <button class="preset-btn" data-preset="grid">сетка</button>
+    </div>
+    <div class="action-buttons">
+      <button id="btn-run" class="action-btn">старт</button>
+      <button id="btn-reset" class="action-btn">сброс</button>
+    </div>
+  </div>
+
+  <p class="evo-hint">Кликните по карте, чтобы добавить город. Эволюция найдёт маршрут.</p>
+</div>
+
+<style>
+.evo-layout { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+#canvas { background: #0a0a0f; border: 1px solid #222; flex: 1; min-width: 300px; cursor: crosshair; }
+.evo-side { display: flex; flex-direction: column; gap: 0.5rem; min-width: 200px; }
+#chart { background: #0a0a0f; border: 1px solid #222; width: 100%; }
+.evo-stats {
+  font-family: monospace; font-size: 0.8rem; color: #6a6a7a;
+  display: flex; flex-direction: column; gap: 0.15rem;
+}
+.evo-stats span { color: #7b8cde; }
+.lab-controls { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 0.5rem; }
+.control-group { font-family: monospace; font-size: 0.8rem; color: #6a6a7a; }
+.control-group label { display: block; margin-bottom: 0.2rem; }
+.control-group span { color: #7b8cde; }
+.control-group input[type="range"] { width: 140px; }
+.evo-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+.preset-buttons, .action-buttons { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.preset-btn {
+  background: #111; color: #6a6a7a; border: 1px solid #222; padding: 0.3rem 0.7rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+}
+.preset-btn:hover { border-color: #7b8cde; color: #7b8cde; }
+.preset-btn.active { border-color: #7b8cde; color: #7b8cde; background: #141420; }
+.action-btn {
+  background: #111; color: #7b8cde; border: 1px solid #7b8cde; padding: 0.3rem 1rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+}
+.action-btn:hover { background: #141420; }
+.evo-hint { font-family: monospace; font-size: 0.75rem; color: #444; text-align: center; margin-top: 0.3rem; }
+</style>
+
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const chart = document.getElementById('chart');
+  const chartCtx = chart.getContext('2d');
+
+  const COL = '#7b8cde';
+  const COL_BEST = '#5de6a0';
+  const COL_DIM = '#6a6a7a';
+  const COL_BG = '#0a0a0f';
+  const COL_GRID = '#1a1a2a';
+  const COL_CITY = '#de7b7b';
+
+  // --- State ---
+  let cities = [];
+  let population = [];
+  let bestRoute = null;
+  let bestDist = Infinity;
+  let generation = 0;
+  let running = false;
+  let animId = null;
+  let history = []; // {gen, best, avg}
+
+  // --- Controls ---
+  const rCities = document.getElementById('r-cities');
+  const rPop = document.getElementById('r-pop');
+  const rMut = document.getElementById('r-mut');
+  const rElite = document.getElementById('r-elite');
+  const rSpeed = document.getElementById('r-speed');
+
+  function getParams() {
+    return {
+      numCities: +rCities.value,
+      popSize: +rPop.value,
+      mutRate: +rMut.value / 100,
+      eliteRate: +rElite.value / 100,
+      speed: +rSpeed.value
+    };
+  }
+
+  // Sync labels
+  [rCities, rPop, rMut, rElite, rSpeed].forEach(r => {
+    r.addEventListener('input', () => {
+      document.getElementById('v-cities').textContent = rCities.value;
+      document.getElementById('v-pop').textContent = rPop.value;
+      document.getElementById('v-mut').textContent = rMut.value;
+      document.getElementById('v-elite').textContent = rElite.value;
+      document.getElementById('v-speed').textContent = rSpeed.value;
+    });
+  });
+
+  // --- City generators ---
+  function randomCities(n) {
+    const pad = 30;
+    return Array.from({length: n}, () => ({
+      x: pad + Math.random() * (canvas.width - 2 * pad),
+      y: pad + Math.random() * (canvas.height - 2 * pad)
+    }));
+  }
+
+  function circleCities(n) {
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const r = Math.min(cx, cy) - 40;
+    return Array.from({length: n}, (_, i) => ({
+      x: cx + r * Math.cos(2 * Math.PI * i / n),
+      y: cy + r * Math.sin(2 * Math.PI * i / n)
+    }));
+  }
+
+  function clusterCities(n) {
+    const clusters = 4;
+    const result = [];
+    const cx = canvas.width, cy = canvas.height;
+    const centers = Array.from({length: clusters}, () => ({
+      x: 60 + Math.random() * (cx - 120),
+      y: 60 + Math.random() * (cy - 120)
+    }));
+    for (let i = 0; i < n; i++) {
+      const c = centers[i % clusters];
+      result.push({
+        x: c.x + (Math.random() - 0.5) * 100,
+        y: c.y + (Math.random() - 0.5) * 100
+      });
+    }
+    return result;
+  }
+
+  function gridCities(n) {
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const result = [];
+    const padX = 50, padY = 50;
+    const stepX = (canvas.width - 2 * padX) / Math.max(1, cols - 1);
+    const stepY = (canvas.height - 2 * padY) / Math.max(1, rows - 1);
+    for (let r = 0; r < rows && result.length < n; r++) {
+      for (let c = 0; c < cols && result.length < n; c++) {
+        result.push({ x: padX + c * stepX, y: padY + r * stepY });
+      }
+    }
+    return result;
+  }
+
+  // --- GA functions ---
+  function dist(a, b) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function routeDist(route) {
+    let d = 0;
+    for (let i = 0; i < route.length; i++) {
+      d += dist(cities[route[i]], cities[route[(i + 1) % route.length]]);
+    }
+    return d;
+  }
+
+  function createRoute() {
+    const r = Array.from({length: cities.length}, (_, i) => i);
+    // Fisher-Yates shuffle
+    for (let i = r.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [r[i], r[j]] = [r[j], r[i]];
+    }
+    return r;
+  }
+
+  function initPopulation(size) {
+    population = Array.from({length: size}, createRoute);
+    bestRoute = null;
+    bestDist = Infinity;
+    generation = 0;
+    history = [];
+    evaluatePopulation();
+  }
+
+  function evaluatePopulation() {
+    const dists = population.map(routeDist);
+    let minD = Infinity, minI = 0, sum = 0;
+    for (let i = 0; i < dists.length; i++) {
+      sum += dists[i];
+      if (dists[i] < minD) { minD = dists[i]; minI = i; }
+    }
+    if (minD < bestDist) {
+      bestDist = minD;
+      bestRoute = [...population[minI]];
+    }
+    history.push({ gen: generation, best: bestDist, avg: sum / dists.length });
+    return dists;
+  }
+
+  // Order crossover (OX)
+  function crossover(p1, p2) {
+    const n = p1.length;
+    const start = Math.floor(Math.random() * n);
+    const end = start + Math.floor(Math.random() * (n - start));
+    const child = new Array(n).fill(-1);
+    for (let i = start; i <= end; i++) child[i] = p1[i];
+    let pos = (end + 1) % n;
+    for (let i = 0; i < n; i++) {
+      const gene = p2[(end + 1 + i) % n];
+      if (!child.includes(gene)) {
+        child[pos] = gene;
+        pos = (pos + 1) % n;
+      }
+    }
+    return child;
+  }
+
+  // Swap mutation
+  function mutate(route, rate) {
+    const r = [...route];
+    for (let i = 0; i < r.length; i++) {
+      if (Math.random() < rate) {
+        const j = Math.floor(Math.random() * r.length);
+        [r[i], r[j]] = [r[j], r[i]];
+      }
+    }
+    return r;
+  }
+
+  // Tournament selection
+  function select(dists) {
+    const tSize = 3;
+    let best = Math.floor(Math.random() * population.length);
+    for (let i = 1; i < tSize; i++) {
+      const c = Math.floor(Math.random() * population.length);
+      if (dists[c] < dists[best]) best = c;
+    }
+    return population[best];
+  }
+
+  function evolve() {
+    const { mutRate, eliteRate } = getParams();
+    const dists = population.map(routeDist);
+
+    // Sort by fitness
+    const indices = Array.from({length: population.length}, (_, i) => i);
+    indices.sort((a, b) => dists[a] - dists[b]);
+
+    const newPop = [];
+    const eliteN = Math.max(1, Math.floor(population.length * eliteRate));
+
+    // Elitism
+    for (let i = 0; i < eliteN; i++) {
+      newPop.push([...population[indices[i]]]);
+    }
+
+    // Breed
+    while (newPop.length < population.length) {
+      const p1 = select(dists);
+      const p2 = select(dists);
+      let child = crossover(p1, p2);
+      child = mutate(child, mutRate);
+      newPop.push(child);
+    }
+
+    population = newPop;
+    generation++;
+    evaluatePopulation();
+  }
+
+  // --- Drawing ---
+  function drawMap() {
+    ctx.fillStyle = COL_BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (cities.length === 0) {
+      ctx.fillStyle = COL_DIM;
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('нажмите «старт» или кликните для добавления городов', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    // Draw average route (dimmed) from a random population member
+    if (population.length > 0) {
+      const randRoute = population[Math.floor(Math.random() * population.length)];
+      ctx.strokeStyle = COL;
+      ctx.lineWidth = 0.3;
+      ctx.globalAlpha = 0.1;
+      ctx.beginPath();
+      for (let i = 0; i <= randRoute.length; i++) {
+        const c = cities[randRoute[i % randRoute.length]];
+        if (i === 0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Best route
+    if (bestRoute) {
+      ctx.strokeStyle = COL_BEST;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      for (let i = 0; i <= bestRoute.length; i++) {
+        const c = cities[bestRoute[i % bestRoute.length]];
+        if (i === 0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Cities
+    for (let i = 0; i < cities.length; i++) {
+      const c = cities[i];
+      ctx.fillStyle = COL_CITY;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Label
+      if (cities.length <= 30) {
+        ctx.fillStyle = COL_DIM;
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(i, c.x, c.y - 8);
+      }
+    }
+
+    // Gen info on canvas
+    ctx.fillStyle = COL_DIM;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`gen ${generation}`, 8, 16);
+    if (bestDist < Infinity) {
+      ctx.fillStyle = COL_BEST;
+      ctx.fillText(`${bestDist.toFixed(1)}`, 8, 30);
+    }
+  }
+
+  function drawChart() {
+    chartCtx.fillStyle = COL_BG;
+    chartCtx.fillRect(0, 0, chart.width, chart.height);
+
+    if (history.length < 2) {
+      chartCtx.fillStyle = COL_DIM;
+      chartCtx.font = '10px monospace';
+      chartCtx.textAlign = 'center';
+      chartCtx.fillText('график фитнеса', chart.width / 2, chart.height / 2);
+      return;
+    }
+
+    const pad = { l: 45, r: 10, t: 20, b: 25 };
+    const w = chart.width - pad.l - pad.r;
+    const h = chart.height - pad.t - pad.b;
+
+    const maxGen = history[history.length - 1].gen;
+    const allVals = history.flatMap(h => [h.best, h.avg]);
+    const minVal = Math.min(...allVals) * 0.95;
+    const maxVal = Math.max(...allVals) * 1.05;
+    const range = maxVal - minVal || 1;
+
+    // Grid
+    chartCtx.strokeStyle = COL_GRID;
+    chartCtx.lineWidth = 0.5;
+    for (let i = 0; i <= 3; i++) {
+      const y = pad.t + (h / 3) * i;
+      chartCtx.beginPath();
+      chartCtx.moveTo(pad.l, y);
+      chartCtx.lineTo(pad.l + w, y);
+      chartCtx.stroke();
+
+      chartCtx.fillStyle = COL_DIM;
+      chartCtx.font = '8px monospace';
+      chartCtx.textAlign = 'right';
+      chartCtx.fillText(Math.round(maxVal - (range / 3) * i), pad.l - 4, y + 3);
+    }
+
+    // Average line
+    chartCtx.strokeStyle = COL;
+    chartCtx.lineWidth = 1;
+    chartCtx.globalAlpha = 0.4;
+    chartCtx.beginPath();
+    for (let i = 0; i < history.length; i++) {
+      const x = pad.l + (history[i].gen / maxGen) * w;
+      const y = pad.t + h - ((history[i].avg - minVal) / range) * h;
+      if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+    }
+    chartCtx.stroke();
+    chartCtx.globalAlpha = 1;
+
+    // Best line
+    chartCtx.strokeStyle = COL_BEST;
+    chartCtx.lineWidth = 1.5;
+    chartCtx.beginPath();
+    for (let i = 0; i < history.length; i++) {
+      const x = pad.l + (history[i].gen / maxGen) * w;
+      const y = pad.t + h - ((history[i].best - minVal) / range) * h;
+      if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+    }
+    chartCtx.stroke();
+
+    // Legend
+    chartCtx.font = '8px monospace';
+    chartCtx.textAlign = 'left';
+    chartCtx.fillStyle = COL_BEST;
+    chartCtx.fillText('лучший', pad.l + 4, pad.t + 12);
+    chartCtx.fillStyle = COL;
+    chartCtx.globalAlpha = 0.5;
+    chartCtx.fillText('средний', pad.l + 60, pad.t + 12);
+    chartCtx.globalAlpha = 1;
+
+    // X label
+    chartCtx.fillStyle = COL_DIM;
+    chartCtx.textAlign = 'center';
+    chartCtx.fillText('поколение', pad.l + w / 2, chart.height - 4);
+  }
+
+  function updateStats() {
+    document.getElementById('s-gen').textContent = generation;
+    document.getElementById('s-best').textContent = bestDist < Infinity ? bestDist.toFixed(1) : '—';
+    const lastH = history[history.length - 1];
+    document.getElementById('s-avg').textContent = lastH ? lastH.avg.toFixed(1) : '—';
+    document.getElementById('s-pop').textContent = population.length || '—';
+    document.getElementById('s-mut').textContent = (getParams().mutRate * 100).toFixed(1) + '%';
+  }
+
+  function render() {
+    drawMap();
+    drawChart();
+    updateStats();
+  }
+
+  // --- Main loop ---
+  function step() {
+    if (!running) return;
+    const { speed } = getParams();
+    for (let i = 0; i < speed; i++) evolve();
+    render();
+    animId = requestAnimationFrame(step);
+  }
+
+  function start() {
+    if (cities.length < 3) {
+      const { numCities } = getParams();
+      generatePreset('random', numCities);
+    }
+    if (population.length === 0) {
+      initPopulation(getParams().popSize);
+    }
+    running = true;
+    document.getElementById('btn-run').textContent = 'пауза';
+    step();
+  }
+
+  function pause() {
+    running = false;
+    cancelAnimationFrame(animId);
+    document.getElementById('btn-run').textContent = 'старт';
+  }
+
+  function reset() {
+    pause();
+    const { numCities } = getParams();
+    const activePreset = document.querySelector('.preset-btn.active');
+    const presetName = activePreset ? activePreset.dataset.preset : 'random';
+    generatePreset(presetName, numCities);
+    initPopulation(getParams().popSize);
+    render();
+  }
+
+  function generatePreset(name, n) {
+    switch (name) {
+      case 'circle': cities = circleCities(n); break;
+      case 'clusters': cities = clusterCities(n); break;
+      case 'grid': cities = gridCities(n); break;
+      default: cities = randomCities(n);
+    }
+    population = [];
+    bestRoute = null;
+    bestDist = Infinity;
+    generation = 0;
+    history = [];
+  }
+
+  // --- Events ---
+  document.getElementById('btn-run').addEventListener('click', () => {
+    if (running) pause(); else start();
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', reset);
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      pause();
+      generatePreset(btn.dataset.preset, getParams().numCities);
+      initPopulation(getParams().popSize);
+      render();
+    });
+  });
+
+  // Click to add city
+  canvas.addEventListener('click', (e) => {
+    if (running) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    cities.push({
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    });
+    if (population.length > 0) {
+      initPopulation(getParams().popSize);
+    }
+    render();
+  });
+
+  // Resize
+  function resize() {
+    const container = canvas.parentElement.parentElement;
+    const w = Math.min(600, Math.floor(container.getBoundingClientRect().width * 0.6));
+    canvas.width = Math.max(300, w);
+    canvas.height = Math.floor(canvas.width * 0.83);
+
+    const cw = Math.min(280, Math.floor(container.getBoundingClientRect().width * 0.35));
+    chart.width = Math.max(180, cw);
+    chart.height = Math.floor(chart.width * 0.64);
+    render();
+  }
+
+  // Init
+  generatePreset('random', getParams().numCities);
+  initPopulation(getParams().popSize);
+  resize();
+  window.addEventListener('resize', resize);
+})();
+</script>
