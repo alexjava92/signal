@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Flock of triangular boids -->
+  <g fill="#7b8cde">
+    <!-- Main group moving upper-right -->
+    <polygon points="320,130 312,136 314,130" opacity="0.7"/>
+    <polygon points="340,120 332,126 334,120" opacity="0.8"/>
+    <polygon points="355,135 347,141 349,135" opacity="0.6"/>
+    <polygon points="360,115 352,121 354,115" opacity="0.9"/>
+    <polygon points="375,125 367,131 369,125" opacity="0.75"/>
+    <polygon points="380,140 372,146 374,140" opacity="0.6"/>
+    <polygon points="395,118 387,124 389,118" opacity="0.85"/>
+    <polygon points="400,132 392,138 394,132" opacity="0.7"/>
+    <polygon points="415,128 407,134 409,128" opacity="0.8"/>
+    <polygon points="420,110 412,116 414,110" opacity="0.65"/>
+    <polygon points="430,145 422,151 424,145" opacity="0.5"/>
+    <polygon points="440,122 432,128 434,122" opacity="0.9"/>
+    <polygon points="450,138 442,144 444,138" opacity="0.7"/>
+    <!-- Stragglers -->
+    <polygon points="290,155 282,161 284,155" opacity="0.35"/>
+    <polygon points="470,108 462,114 464,108" opacity="0.4"/>
+    <polygon points="310,170 302,176 304,170" opacity="0.25"/>
+    <!-- Second smaller group -->
+    <polygon points="550,220 542,226 544,220" opacity="0.5"/>
+    <polygon points="570,215 562,221 564,215" opacity="0.55"/>
+    <polygon points="560,230 552,236 554,230" opacity="0.45"/>
+    <polygon points="580,225 572,231 574,225" opacity="0.5"/>
+    <polygon points="540,240 532,246 534,240" opacity="0.35"/>
+  </g>
+  <!-- Direction hint lines -->
+  <line x1="300" y1="150" x2="460" y2="105" stroke="#7b8cde" stroke-width="0.5" opacity="0.1" stroke-dasharray="4,8"/>
+  <!-- Title -->
+  <text x="400" y="310" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">boids</text>
+  <text x="400" y="338" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">три правила. из них — стая.</text>
+  <text x="400" y="370" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal/lab</text>
+</svg>

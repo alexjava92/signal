@@ -1,0 +1,506 @@
+---
+layout: base.njk
+title: "Boids"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Boids<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Крейг Рейнольдс, 1986. Три правила — разделение, выравнивание, сплочение. Из них возникает стая.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <canvas id="canvas" width="900" height="600"></canvas>
+  <div class="lab-info">
+    <span class="info-tag" id="info-count">агентов: 200</span>
+    <span class="info-tag" id="info-fps">fps: --</span>
+  </div>
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>количество: <span id="v-count">200</span></label>
+      <input type="range" id="count" min="20" max="500" value="200" step="10">
+    </div>
+    <div class="control-group">
+      <label>разделение: <span id="v-sep">1.5</span></label>
+      <input type="range" id="sep" min="0" max="40" value="15" step="1">
+    </div>
+    <div class="control-group">
+      <label>выравнивание: <span id="v-ali">1.0</span></label>
+      <input type="range" id="ali" min="0" max="40" value="10" step="1">
+    </div>
+    <div class="control-group">
+      <label>сплочение: <span id="v-coh">1.0</span></label>
+      <input type="range" id="coh" min="0" max="40" value="10" step="1">
+    </div>
+    <div class="control-group">
+      <label>радиус обзора: <span id="v-radius">60</span></label>
+      <input type="range" id="radius" min="20" max="150" value="60" step="5">
+    </div>
+    <div class="control-group">
+      <label>макс. скорость: <span id="v-speed">4</span></label>
+      <input type="range" id="speed" min="1" max="10" value="4" step="1">
+    </div>
+    <div class="control-group">
+      <label>пресеты:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-preset="flock">стая</button>
+        <button class="preset-btn" data-preset="swarm">рой</button>
+        <button class="preset-btn" data-preset="stream">поток</button>
+        <button class="preset-btn" data-preset="chaos">хаос</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>мышь:</label>
+      <div class="preset-buttons">
+        <button class="preset-btn active" data-mouse="attract">притяжение</button>
+        <button class="preset-btn" data-mouse="repel">отталкивание</button>
+        <button class="preset-btn" data-mouse="none">нет</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <button id="btn-reset" class="action-btn">сбросить</button>
+      <button id="btn-pause" class="action-btn">пауза</button>
+      <button id="btn-trails" class="action-btn">следы</button>
+    </div>
+  </div>
+  <div class="rules-info">
+    <div class="rule">
+      <strong>разделение</strong> — не врезаться в соседей. Каждый агент отворачивает от ближайших.
+    </div>
+    <div class="rule">
+      <strong>выравнивание</strong> — лететь как соседи. Каждый агент подстраивает скорость под средний вектор группы.
+    </div>
+    <div class="rule">
+      <strong>сплочение</strong> — держаться вместе. Каждый агент стремится к центру масс ближайших.
+    </div>
+  </div>
+</div>
+
+<style>
+  .lab-container { margin-top: 24px; }
+  #canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #0a0a0f;
+    cursor: crosshair;
+  }
+  .lab-info {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .info-tag {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .lab-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 12px;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+  }
+  .control-group label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .control-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .preset-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-btn {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(123,140,222,0.1); }
+  .action-btn {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 6px 14px;
+    background: rgba(123,140,222,0.1);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(123,140,222,0.2); }
+  .action-btn.on { background: rgba(123,140,222,0.3); }
+  .rules-info {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .rule {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    line-height: 1.5;
+  }
+  .rule strong { color: var(--accent); }
+</style>
+
+<script>
+(function() {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  // Parameters
+  var params = {
+    count: 200,
+    separation: 1.5,
+    alignment: 1.0,
+    cohesion: 1.0,
+    radius: 60,
+    maxSpeed: 4,
+    maxForce: 0.15
+  };
+
+  var presets = {
+    flock: { separation: 1.5, alignment: 1.0, cohesion: 1.0, radius: 60, maxSpeed: 4 },
+    swarm: { separation: 2.0, alignment: 0.3, cohesion: 2.5, radius: 80, maxSpeed: 3 },
+    stream: { separation: 1.0, alignment: 2.5, cohesion: 0.3, radius: 40, maxSpeed: 6 },
+    chaos: { separation: 0.5, alignment: 0.2, cohesion: 0.2, radius: 30, maxSpeed: 8 }
+  };
+
+  var mouseMode = 'attract';
+  var mouseX = -1, mouseY = -1;
+  var mouseDown = false;
+  var paused = false;
+  var showTrails = false;
+  var boids = [];
+  var lastTime = performance.now();
+  var frameCount = 0;
+  var fps = 0;
+
+  function Boid(x, y) {
+    this.x = x;
+    this.y = y;
+    var angle = Math.random() * Math.PI * 2;
+    var speed = 1 + Math.random() * 2;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.hue = 220 + Math.random() * 40;
+  }
+
+  function initBoids() {
+    boids = [];
+    for (var i = 0; i < params.count; i++) {
+      boids.push(new Boid(Math.random() * W, Math.random() * H));
+    }
+  }
+
+  function limit(vx, vy, max) {
+    var mag = Math.sqrt(vx * vx + vy * vy);
+    if (mag > max && mag > 0) {
+      return [vx / mag * max, vy / mag * max];
+    }
+    return [vx, vy];
+  }
+
+  function updateBoid(b, i) {
+    var sepX = 0, sepY = 0, sepCount = 0;
+    var aliX = 0, aliY = 0, aliCount = 0;
+    var cohX = 0, cohY = 0, cohCount = 0;
+    var r = params.radius;
+    var r2 = r * r;
+    var sepDist = r * 0.4;
+    var sepDist2 = sepDist * sepDist;
+
+    for (var j = 0; j < boids.length; j++) {
+      if (j === i) continue;
+      var o = boids[j];
+      var dx = o.x - b.x;
+      var dy = o.y - b.y;
+      // Wrap-around distance
+      if (dx > W / 2) dx -= W;
+      if (dx < -W / 2) dx += W;
+      if (dy > H / 2) dy -= H;
+      if (dy < -H / 2) dy += H;
+      var d2 = dx * dx + dy * dy;
+
+      if (d2 < r2 && d2 > 0) {
+        // Alignment
+        aliX += o.vx;
+        aliY += o.vy;
+        aliCount++;
+
+        // Cohesion
+        cohX += b.x + dx;
+        cohY += b.y + dy;
+        cohCount++;
+
+        // Separation (closer neighbors push harder)
+        if (d2 < sepDist2) {
+          var d = Math.sqrt(d2);
+          sepX -= dx / d;
+          sepY -= dy / d;
+          sepCount++;
+        }
+      }
+    }
+
+    var fx = 0, fy = 0;
+
+    // Separation force
+    if (sepCount > 0) {
+      var s = limit(sepX / sepCount, sepY / sepCount, params.maxForce);
+      fx += s[0] * params.separation;
+      fy += s[1] * params.separation;
+    }
+
+    // Alignment force
+    if (aliCount > 0) {
+      var ax = aliX / aliCount - b.vx;
+      var ay = aliY / aliCount - b.vy;
+      var a = limit(ax, ay, params.maxForce);
+      fx += a[0] * params.alignment;
+      fy += a[1] * params.alignment;
+    }
+
+    // Cohesion force
+    if (cohCount > 0) {
+      var cx = cohX / cohCount - b.x;
+      var cy = cohY / cohCount - b.y;
+      var c = limit(cx, cy, params.maxForce);
+      fx += c[0] * params.cohesion;
+      fy += c[1] * params.cohesion;
+    }
+
+    // Mouse interaction
+    if (mouseDown && mouseX >= 0 && mouseMode !== 'none') {
+      var mdx = mouseX - b.x;
+      var mdy = mouseY - b.y;
+      var md = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (md < 200 && md > 0) {
+        var mf = 0.5 * (1 - md / 200);
+        if (mouseMode === 'attract') {
+          fx += (mdx / md) * mf;
+          fy += (mdy / md) * mf;
+        } else {
+          fx -= (mdx / md) * mf;
+          fy -= (mdy / md) * mf;
+        }
+      }
+    }
+
+    // Apply forces
+    b.vx += fx;
+    b.vy += fy;
+    var v = limit(b.vx, b.vy, params.maxSpeed);
+    b.vx = v[0];
+    b.vy = v[1];
+
+    // Move
+    b.x += b.vx;
+    b.y += b.vy;
+
+    // Wrap
+    if (b.x < 0) b.x += W;
+    if (b.x > W) b.x -= W;
+    if (b.y < 0) b.y += H;
+    if (b.y > H) b.y -= H;
+  }
+
+  function drawBoid(b) {
+    var angle = Math.atan2(b.vy, b.vx);
+    var speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+    var size = 5 + speed * 0.5;
+    var alpha = 0.6 + speed / params.maxSpeed * 0.4;
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(angle);
+
+    ctx.beginPath();
+    ctx.moveTo(size, 0);
+    ctx.lineTo(-size * 0.6, size * 0.4);
+    ctx.lineTo(-size * 0.3, 0);
+    ctx.lineTo(-size * 0.6, -size * 0.4);
+    ctx.closePath();
+
+    ctx.fillStyle = 'hsla(' + b.hue + ', 60%, 65%, ' + alpha + ')';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() {
+    if (!showTrails) {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.08)';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Mouse indicator
+    if (mouseX >= 0 && mouseMode !== 'none') {
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = mouseMode === 'attract' ? 'rgba(123,140,222,0.4)' : 'rgba(224,123,123,0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      if (mouseDown) {
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, 200, 0, Math.PI * 2);
+        ctx.strokeStyle = mouseMode === 'attract' ? 'rgba(123,140,222,0.1)' : 'rgba(224,123,123,0.1)';
+        ctx.stroke();
+      }
+    }
+
+    for (var i = 0; i < boids.length; i++) {
+      drawBoid(boids[i]);
+    }
+  }
+
+  function step() {
+    for (var i = 0; i < boids.length; i++) {
+      updateBoid(boids[i], i);
+    }
+    draw();
+
+    // FPS
+    frameCount++;
+    var now = performance.now();
+    if (now - lastTime >= 1000) {
+      fps = frameCount;
+      frameCount = 0;
+      lastTime = now;
+      document.getElementById('info-fps').textContent = 'fps: ' + fps;
+    }
+  }
+
+  function loop() {
+    if (!paused) step();
+    requestAnimationFrame(loop);
+  }
+
+  // Controls
+  document.getElementById('count').addEventListener('input', function() {
+    params.count = +this.value;
+    document.getElementById('v-count').textContent = this.value;
+    document.getElementById('info-count').textContent = 'агентов: ' + this.value;
+    initBoids();
+  });
+  document.getElementById('sep').addEventListener('input', function() {
+    params.separation = +this.value / 10;
+    document.getElementById('v-sep').textContent = params.separation.toFixed(1);
+  });
+  document.getElementById('ali').addEventListener('input', function() {
+    params.alignment = +this.value / 10;
+    document.getElementById('v-ali').textContent = params.alignment.toFixed(1);
+  });
+  document.getElementById('coh').addEventListener('input', function() {
+    params.cohesion = +this.value / 10;
+    document.getElementById('v-coh').textContent = params.cohesion.toFixed(1);
+  });
+  document.getElementById('radius').addEventListener('input', function() {
+    params.radius = +this.value;
+    document.getElementById('v-radius').textContent = this.value;
+  });
+  document.getElementById('speed').addEventListener('input', function() {
+    params.maxSpeed = +this.value;
+    document.getElementById('v-speed').textContent = this.value;
+  });
+
+  // Presets
+  document.querySelectorAll('[data-preset]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('[data-preset]').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      var p = presets[this.dataset.preset];
+      params.separation = p.separation;
+      params.alignment = p.alignment;
+      params.cohesion = p.cohesion;
+      params.radius = p.radius;
+      params.maxSpeed = p.maxSpeed;
+      // Update sliders
+      document.getElementById('sep').value = p.separation * 10;
+      document.getElementById('v-sep').textContent = p.separation.toFixed(1);
+      document.getElementById('ali').value = p.alignment * 10;
+      document.getElementById('v-ali').textContent = p.alignment.toFixed(1);
+      document.getElementById('coh').value = p.cohesion * 10;
+      document.getElementById('v-coh').textContent = p.cohesion.toFixed(1);
+      document.getElementById('radius').value = p.radius;
+      document.getElementById('v-radius').textContent = p.radius;
+      document.getElementById('speed').value = p.maxSpeed;
+      document.getElementById('v-speed').textContent = p.maxSpeed;
+    });
+  });
+
+  // Mouse mode
+  document.querySelectorAll('[data-mouse]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('[data-mouse]').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      mouseMode = this.dataset.mouse;
+    });
+  });
+
+  // Action buttons
+  document.getElementById('btn-reset').addEventListener('click', function() {
+    initBoids();
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, W, H);
+  });
+  document.getElementById('btn-pause').addEventListener('click', function() {
+    paused = !paused;
+    this.textContent = paused ? 'запуск' : 'пауза';
+  });
+  document.getElementById('btn-trails').addEventListener('click', function() {
+    showTrails = !showTrails;
+    this.classList.toggle('on');
+    if (!showTrails) {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, W, H);
+    }
+  });
+
+  // Mouse events
+  canvas.addEventListener('mousemove', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    mouseX = (e.clientX - rect.left) * (W / rect.width);
+    mouseY = (e.clientY - rect.top) * (H / rect.height);
+  });
+  canvas.addEventListener('mouseleave', function() { mouseX = -1; mouseDown = false; });
+  canvas.addEventListener('mousedown', function(e) { e.preventDefault(); mouseDown = true; });
+  canvas.addEventListener('mouseup', function() { mouseDown = false; });
+
+  // Init
+  initBoids();
+  loop();
+})();
+</script>

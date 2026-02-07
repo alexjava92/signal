@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Nested rectangles — recursion visual -->
+  <g fill="none" stroke="#7b8cde" stroke-width="1">
+    <rect x="200" y="60" width="400" height="220" opacity="0.15"/>
+    <rect x="230" y="80" width="340" height="180" opacity="0.25"/>
+    <rect x="260" y="100" width="280" height="140" opacity="0.35"/>
+    <rect x="290" y="120" width="220" height="100" opacity="0.5"/>
+    <rect x="320" y="140" width="160" height="60" opacity="0.7"/>
+    <rect x="350" y="155" width="100" height="30" opacity="0.9" fill="rgba(123,140,222,0.1)"/>
+  </g>
+  <!-- Base case dot -->
+  <circle cx="400" cy="170" r="3" fill="#7b8cde"/>
+  <!-- Call stack on the side -->
+  <g font-family="monospace" font-size="10" fill="#6a6a7a" opacity="0.5">
+    <text x="640" y="80">f(5)</text>
+    <text x="650" y="105">f(4)</text>
+    <text x="660" y="130">f(3)</text>
+    <text x="670" y="155">f(2)</text>
+    <text x="680" y="180">f(1)</text>
+    <text x="690" y="205" fill="#7b8cde" opacity="1">→ 1</text>
+  </g>
+  <!-- Title -->
+  <text x="400" y="320" text-anchor="middle" font-family="monospace" font-size="20" fill="#7b8cde">как я думаю о рекурсии</text>
+  <text x="400" y="348" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">функция вызывает сама себя. это не баг.</text>
+  <text x="400" y="380" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal</text>
+</svg>
