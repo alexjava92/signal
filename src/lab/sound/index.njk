@@ -1,0 +1,407 @@
+---
+layout: base.njk
+title: "Визуализация звука"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Визуализация звука<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Звук — это колебания. Частота, амплитуда, форма волны. Здесь можно их увидеть. Играйте с осцилляторами, добавляйте гармоники, наблюдайте спектр.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <div class="sound-canvases">
+    <div class="canvas-block">
+      <label>форма волны</label>
+      <canvas id="wave" width="800" height="200"></canvas>
+    </div>
+    <div class="canvas-block">
+      <label>спектр частот</label>
+      <canvas id="spectrum" width="800" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>частота: <span id="v-freq">220</span> Hz</label>
+      <input type="range" id="r-freq" min="40" max="2000" value="220" step="1">
+    </div>
+    <div class="control-group">
+      <label>громкость: <span id="v-vol">30</span>%</label>
+      <input type="range" id="r-vol" min="0" max="100" value="30" step="1">
+    </div>
+    <div class="control-group">
+      <label>форма волны:</label>
+      <div class="preset-buttons">
+        <button class="wave-btn active" data-wave="sine">sin</button>
+        <button class="wave-btn" data-wave="square">square</button>
+        <button class="wave-btn" data-wave="sawtooth">saw</button>
+        <button class="wave-btn" data-wave="triangle">tri</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="harmonics-section">
+    <label>гармоники:</label>
+    <div class="harmonics-row">
+      <div class="harmonic">
+        <span>2x</span>
+        <input type="range" id="h2" min="0" max="100" value="0" step="1" class="h-slider">
+      </div>
+      <div class="harmonic">
+        <span>3x</span>
+        <input type="range" id="h3" min="0" max="100" value="0" step="1" class="h-slider">
+      </div>
+      <div class="harmonic">
+        <span>4x</span>
+        <input type="range" id="h4" min="0" max="100" value="0" step="1" class="h-slider">
+      </div>
+      <div class="harmonic">
+        <span>5x</span>
+        <input type="range" id="h5" min="0" max="100" value="0" step="1" class="h-slider">
+      </div>
+    </div>
+  </div>
+
+  <div class="sound-presets">
+    <label>пресеты:</label>
+    <div class="preset-buttons">
+      <button class="preset-btn" data-preset="pure">чистый тон</button>
+      <button class="preset-btn" data-preset="organ">орган</button>
+      <button class="preset-btn" data-preset="bell">колокол</button>
+      <button class="preset-btn" data-preset="bass">бас</button>
+    </div>
+  </div>
+
+  <div class="sound-actions">
+    <button id="btn-play" class="action-btn play-btn">&#9654; играть</button>
+    <div class="note-buttons">
+      <button class="note-btn" data-freq="261.63">C</button>
+      <button class="note-btn" data-freq="293.66">D</button>
+      <button class="note-btn" data-freq="329.63">E</button>
+      <button class="note-btn" data-freq="349.23">F</button>
+      <button class="note-btn" data-freq="392.00">G</button>
+      <button class="note-btn" data-freq="440.00">A</button>
+      <button class="note-btn" data-freq="493.88">B</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.sound-canvases { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.5rem; }
+.canvas-block label { font-family: monospace; font-size: 0.75rem; color: #6a6a7a; }
+.canvas-block canvas { width: 100%; background: #0a0a0f; border: 1px solid #222; }
+.lab-controls { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 0.5rem; }
+.control-group { font-family: monospace; font-size: 0.8rem; color: #6a6a7a; }
+.control-group label { display: block; margin-bottom: 0.2rem; }
+.control-group span { color: #7b8cde; }
+.control-group input[type="range"] { width: 140px; }
+.wave-btn {
+  background: #111; color: #6a6a7a; border: 1px solid #222; padding: 0.25rem 0.6rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer;
+}
+.wave-btn:hover { border-color: #7b8cde; color: #7b8cde; }
+.wave-btn.active { border-color: #7b8cde; color: #7b8cde; background: #141420; }
+.harmonics-section { margin-bottom: 0.5rem; }
+.harmonics-section > label { font-family: monospace; font-size: 0.8rem; color: #6a6a7a; display: block; margin-bottom: 0.3rem; }
+.harmonics-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.harmonic { font-family: monospace; font-size: 0.75rem; color: #6a6a7a; display: flex; align-items: center; gap: 0.3rem; }
+.harmonic span { color: #7b8cde; width: 20px; }
+.h-slider { width: 80px; }
+.sound-presets { margin-bottom: 0.5rem; }
+.sound-presets > label { font-family: monospace; font-size: 0.8rem; color: #6a6a7a; margin-right: 0.5rem; }
+.preset-btn {
+  background: #111; color: #6a6a7a; border: 1px solid #222; padding: 0.25rem 0.6rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer;
+}
+.preset-btn:hover { border-color: #7b8cde; color: #7b8cde; }
+.sound-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.play-btn {
+  background: #141420; color: #5de6a0; border: 1px solid #5de6a0; padding: 0.4rem 1.2rem;
+  font-family: monospace; font-size: 0.9rem; cursor: pointer;
+}
+.play-btn:hover { background: #1a2a1a; }
+.play-btn.playing { color: #de7b7b; border-color: #de7b7b; }
+.note-buttons { display: flex; gap: 0.2rem; }
+.note-btn {
+  background: #111; color: #7b8cde; border: 1px solid #222; padding: 0.3rem 0.5rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer; min-width: 28px; text-align: center;
+}
+.note-btn:hover { border-color: #7b8cde; background: #141420; }
+.note-btn:active { background: #1a1a3a; }
+</style>
+
+<script>
+(function() {
+  const waveCanvas = document.getElementById('wave');
+  const specCanvas = document.getElementById('spectrum');
+  const wCtx = waveCanvas.getContext('2d');
+  const sCtx = specCanvas.getContext('2d');
+
+  let audioCtx = null;
+  let analyser = null;
+  let mainOsc = null;
+  let harmonicOscs = [];
+  let mainGain = null;
+  let harmonicGains = [];
+  let isPlaying = false;
+  let animId = null;
+
+  const COL = '#7b8cde';
+  const COL_GREEN = '#5de6a0';
+  const COL_DIM = '#6a6a7a';
+  const COL_BG = '#0a0a0f';
+  const COL_GRID = '#1a1a2a';
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.8;
+    analyser.connect(audioCtx.destination);
+
+    // Main oscillator
+    mainOsc = audioCtx.createOscillator();
+    mainGain = audioCtx.createGain();
+    mainOsc.connect(mainGain);
+    mainGain.connect(analyser);
+    mainGain.gain.value = 0;
+    mainOsc.start();
+
+    // Harmonic oscillators
+    for (let i = 0; i < 4; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(analyser);
+      gain.gain.value = 0;
+      osc.start();
+      harmonicOscs.push(osc);
+      harmonicGains.push(gain);
+    }
+  }
+
+  function getFreq() { return +document.getElementById('r-freq').value; }
+  function getVol() { return +document.getElementById('r-vol').value / 100; }
+  function getWave() {
+    return document.querySelector('.wave-btn.active').dataset.wave;
+  }
+
+  function updateOscillators() {
+    if (!audioCtx) return;
+    const freq = getFreq();
+    const vol = getVol();
+    const wave = getWave();
+
+    mainOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.01);
+    mainOsc.type = wave;
+    mainGain.gain.setTargetAtTime(isPlaying ? vol : 0, audioCtx.currentTime, 0.02);
+
+    // Harmonics
+    for (let i = 0; i < 4; i++) {
+      const hSlider = document.getElementById('h' + (i + 2));
+      const hVol = +hSlider.value / 100;
+      harmonicOscs[i].frequency.setTargetAtTime(freq * (i + 2), audioCtx.currentTime, 0.01);
+      harmonicOscs[i].type = wave;
+      harmonicGains[i].gain.setTargetAtTime(isPlaying ? vol * hVol : 0, audioCtx.currentTime, 0.02);
+    }
+  }
+
+  function drawWave() {
+    wCtx.fillStyle = COL_BG;
+    wCtx.fillRect(0, 0, waveCanvas.width, waveCanvas.height);
+
+    // Grid
+    const midY = waveCanvas.height / 2;
+    wCtx.strokeStyle = COL_GRID;
+    wCtx.lineWidth = 0.5;
+    wCtx.beginPath();
+    wCtx.moveTo(0, midY);
+    wCtx.lineTo(waveCanvas.width, midY);
+    wCtx.stroke();
+
+    if (!analyser) return;
+
+    const bufLen = analyser.fftSize;
+    const data = new Uint8Array(bufLen);
+    analyser.getByteTimeDomainData(data);
+
+    wCtx.strokeStyle = COL_GREEN;
+    wCtx.lineWidth = 1.5;
+    wCtx.beginPath();
+
+    const sliceW = waveCanvas.width / bufLen;
+    for (let i = 0; i < bufLen; i++) {
+      const v = data[i] / 128.0;
+      const y = (v * waveCanvas.height) / 2;
+      if (i === 0) wCtx.moveTo(0, y);
+      else wCtx.lineTo(i * sliceW, y);
+    }
+    wCtx.stroke();
+
+    // Frequency label
+    if (isPlaying) {
+      wCtx.fillStyle = COL_DIM;
+      wCtx.font = '10px monospace';
+      wCtx.textAlign = 'right';
+      wCtx.fillText(getFreq() + ' Hz', waveCanvas.width - 8, 14);
+    }
+  }
+
+  function drawSpectrum() {
+    sCtx.fillStyle = COL_BG;
+    sCtx.fillRect(0, 0, specCanvas.width, specCanvas.height);
+
+    if (!analyser) return;
+
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+    analyser.getByteFrequencyData(data);
+
+    // Only show up to ~4000 Hz
+    const nyquist = audioCtx ? audioCtx.sampleRate / 2 : 22050;
+    const maxBin = Math.min(bufLen, Math.floor(4000 / nyquist * bufLen));
+
+    const barW = specCanvas.width / maxBin;
+    const h = specCanvas.height;
+
+    for (let i = 0; i < maxBin; i++) {
+      const val = data[i] / 255;
+      const barH = val * h;
+      const alpha = 0.3 + val * 0.7;
+
+      // Color gradient: blue to purple
+      const r = Math.floor(123 + val * 100);
+      const g = Math.floor(140 - val * 80);
+      const b = 222;
+      sCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      sCtx.fillRect(i * barW, h - barH, Math.max(1, barW - 0.5), barH);
+    }
+
+    // Frequency markers
+    sCtx.fillStyle = COL_DIM;
+    sCtx.font = '9px monospace';
+    sCtx.textAlign = 'center';
+    const markers = [100, 200, 500, 1000, 2000, 4000];
+    for (const f of markers) {
+      if (f > 4000) break;
+      const x = (f / nyquist) * bufLen * barW;
+      sCtx.fillText(f >= 1000 ? (f/1000) + 'k' : f, x, h - 4);
+      sCtx.strokeStyle = COL_GRID;
+      sCtx.lineWidth = 0.3;
+      sCtx.beginPath();
+      sCtx.moveTo(x, 0);
+      sCtx.lineTo(x, h - 12);
+      sCtx.stroke();
+    }
+  }
+
+  function animate() {
+    drawWave();
+    drawSpectrum();
+    animId = requestAnimationFrame(animate);
+  }
+
+  function startSound() {
+    initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    isPlaying = true;
+    updateOscillators();
+    document.getElementById('btn-play').innerHTML = '&#9632; стоп';
+    document.getElementById('btn-play').classList.add('playing');
+    if (!animId) animate();
+  }
+
+  function stopSound() {
+    isPlaying = false;
+    updateOscillators();
+    document.getElementById('btn-play').innerHTML = '&#9654; играть';
+    document.getElementById('btn-play').classList.remove('playing');
+  }
+
+  // --- Events ---
+
+  document.getElementById('btn-play').addEventListener('click', () => {
+    if (isPlaying) stopSound(); else startSound();
+  });
+
+  // Frequency & volume
+  document.getElementById('r-freq').addEventListener('input', (e) => {
+    document.getElementById('v-freq').textContent = e.target.value;
+    updateOscillators();
+  });
+  document.getElementById('r-vol').addEventListener('input', (e) => {
+    document.getElementById('v-vol').textContent = e.target.value;
+    updateOscillators();
+  });
+
+  // Wave type
+  document.querySelectorAll('.wave-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.wave-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateOscillators();
+    });
+  });
+
+  // Harmonics
+  document.querySelectorAll('.h-slider').forEach(s => {
+    s.addEventListener('input', updateOscillators);
+  });
+
+  // Presets
+  const PRESETS = {
+    pure: { freq: 440, wave: 'sine', h: [0, 0, 0, 0] },
+    organ: { freq: 220, wave: 'sine', h: [80, 60, 40, 30] },
+    bell: { freq: 523, wave: 'sine', h: [50, 0, 30, 0] },
+    bass: { freq: 82, wave: 'sawtooth', h: [40, 20, 10, 5] }
+  };
+
+  document.querySelectorAll('.sound-presets .preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = PRESETS[btn.dataset.preset];
+      if (!p) return;
+      document.getElementById('r-freq').value = p.freq;
+      document.getElementById('v-freq').textContent = p.freq;
+      // Set wave
+      document.querySelectorAll('.wave-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.wave-btn[data-wave="${p.wave}"]`).classList.add('active');
+      // Set harmonics
+      p.h.forEach((v, i) => {
+        document.getElementById('h' + (i + 2)).value = v;
+      });
+      updateOscillators();
+      if (!isPlaying) startSound();
+    });
+  });
+
+  // Note buttons
+  document.querySelectorAll('.note-btn').forEach(btn => {
+    btn.addEventListener('mousedown', () => {
+      document.getElementById('r-freq').value = btn.dataset.freq;
+      document.getElementById('v-freq').textContent = Math.round(btn.dataset.freq);
+      if (!isPlaying) startSound();
+      else updateOscillators();
+    });
+  });
+
+  // Resize
+  function resize() {
+    const w = Math.min(800, Math.floor(waveCanvas.parentElement.parentElement.getBoundingClientRect().width));
+    waveCanvas.width = w;
+    waveCanvas.height = Math.floor(w * 0.25);
+    specCanvas.width = w;
+    specCanvas.height = Math.floor(w * 0.25);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Initial draw (silent)
+  drawWave();
+  drawSpectrum();
+})();
+</script>

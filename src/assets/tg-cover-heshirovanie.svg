@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Input (infinite) → Hash function → Output (finite) -->
+  <!-- Input side: various data -->
+  <g font-family="monospace" font-size="9" fill="#6a6a7a" opacity="0.3">
+    <text x="100" y="110">Война и мир...</text>
+    <text x="80" y="135">hello world</text>
+    <text x="110" y="160">0x4a3f8b...</text>
+    <text x="90" y="185">password123</text>
+  </g>
+  <!-- Arrow to hash function -->
+  <line x1="230" y1="150" x2="320" y2="150" stroke="#7b8cde" stroke-width="0.8" opacity="0.3"/>
+  <polygon points="320,147 330,150 320,153" fill="#7b8cde" opacity="0.3"/>
+  <!-- Hash function box -->
+  <rect x="340" y="125" width="120" height="50" fill="none" stroke="#7b8cde" stroke-width="1" opacity="0.5" rx="3"/>
+  <text x="400" y="155" text-anchor="middle" font-family="monospace" font-size="12" fill="#7b8cde" opacity="0.6">H(x)</text>
+  <!-- Arrow to output -->
+  <line x1="470" y1="150" x2="540" y2="150" stroke="#7b8cde" stroke-width="0.8" opacity="0.3"/>
+  <polygon points="540,147 550,150 540,153" fill="#7b8cde" opacity="0.3"/>
+  <!-- Output: fixed-size hash -->
+  <text x="570" y="145" font-family="monospace" font-size="10" fill="#7b8cde" opacity="0.5">a7f3b2c1</text>
+  <text x="570" y="162" font-family="monospace" font-size="10" fill="#7b8cde" opacity="0.4">9e1d4f08</text>
+  <!-- Avalanche effect hint: one bit changes everything -->
+  <g opacity="0.2">
+    <text x="350" y="210" font-family="monospace" font-size="8" fill="#de7b7b">1 бит → 50% бит</text>
+  </g>
+  <!-- Title -->
+  <text x="400" y="280" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">хеширование</text>
+  <text x="400" y="308" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">бесконечное → конечное</text>
+  <text x="400" y="370" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal</text>
+</svg>

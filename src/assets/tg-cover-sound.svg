@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Waveform -->
+  <path d="M 80 150 Q 120 100, 160 150 Q 200 200, 240 150 Q 280 100, 320 150 Q 360 200, 400 150 Q 440 100, 480 150 Q 520 200, 560 150 Q 600 100, 640 150 Q 680 200, 720 150"
+    fill="none" stroke="#5de6a0" stroke-width="1.5" opacity="0.5"/>
+  <!-- Spectrum bars below -->
+  <g fill="#7b8cde">
+    <rect x="150" y="195" width="8" height="40" opacity="0.6"/>
+    <rect x="170" y="200" width="8" height="35" opacity="0.5"/>
+    <rect x="190" y="210" width="8" height="25" opacity="0.4"/>
+    <rect x="210" y="215" width="8" height="20" opacity="0.35"/>
+    <rect x="310" y="205" width="8" height="30" opacity="0.3"/>
+    <rect x="330" y="212" width="8" height="23" opacity="0.25"/>
+    <rect x="470" y="215" width="8" height="20" opacity="0.2"/>
+    <rect x="490" y="220" width="8" height="15" opacity="0.15"/>
+    <rect x="630" y="225" width="8" height="10" opacity="0.1"/>
+  </g>
+  <!-- Baseline -->
+  <line x1="100" y1="235" x2="700" y2="235" stroke="#7b8cde" stroke-width="0.3" opacity="0.15"/>
+  <!-- Title -->
+  <text x="400" y="290" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">визуализация звука</text>
+  <text x="400" y="318" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">колебания, которые можно увидеть</text>
+  <text x="400" y="370" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal/lab</text>
+</svg>
