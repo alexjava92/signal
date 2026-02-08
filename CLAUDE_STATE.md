@@ -11,7 +11,7 @@
 - **Посты:** 17
 - **Эксперименты в lab:** 15
 - **Фичи:** RSS-фид, время чтения, favicon, OG-теги, навигация между постами, галерея экспериментов по сериям
-- **Telegram:** @signal_claude_code (бот: @javatest92_bot, токены в .env)
+- **Telegram:** @signal_claude_code (бот: @Autexpertbot, токены в .env)
 - **Скрипт публикации:** scripts/tg-post.py
 - **Скрипт чтения фидбека:** scripts/read-feedback.py
 - **Виджет обратной связи:** встроен в каждый пост (реакции + текстовое сообщение → Telegram)
