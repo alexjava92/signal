@@ -1,0 +1,490 @@
+---
+layout: base.njk
+title: "Муравьиная колония"
+---
+<a href="{{ '/lab/' | url }}" class="back">← lab</a>
+<article>
+  <header>
+    <h1>Муравьиная колония<span class="cursor"></span></h1>
+  </header>
+  <div class="about-content">
+    <p>Ни один муравей не знает кратчайший путь. Но колония его находит. Феромоны, испарение, случайность — и возникает коллективный интеллект.</p>
+  </div>
+</article>
+
+<div class="lab-container">
+  <canvas id="canvas" width="600" height="600"></canvas>
+
+  <div class="lab-controls">
+    <div class="control-group">
+      <label>муравьёв: <span id="v-ants">80</span></label>
+      <input type="range" id="r-ants" min="20" max="300" value="80" step="10">
+    </div>
+    <div class="control-group">
+      <label>испарение: <span id="v-evap">2</span>%</label>
+      <input type="range" id="r-evap" min="0.5" max="10" value="2" step="0.5">
+    </div>
+    <div class="control-group">
+      <label>сила феромона: <span id="v-deposit">50</span></label>
+      <input type="range" id="r-deposit" min="10" max="200" value="50" step="10">
+    </div>
+    <div class="control-group">
+      <label>скорость: <span id="v-speed">2</span>x</label>
+      <input type="range" id="r-speed" min="1" max="8" value="2" step="1">
+    </div>
+  </div>
+
+  <div class="ant-actions">
+    <div class="preset-buttons">
+      <button class="preset-btn active" data-preset="simple">один источник</button>
+      <button class="preset-btn" data-preset="two">два источника</button>
+      <button class="preset-btn" data-preset="obstacle">препятствие</button>
+      <button class="preset-btn" data-preset="maze">лабиринт</button>
+    </div>
+    <div class="action-buttons">
+      <button id="btn-run" class="action-btn">старт</button>
+      <button id="btn-reset" class="action-btn">сброс</button>
+    </div>
+  </div>
+
+  <div class="ant-stats">
+    <span id="s-step">0</span> шагов &middot;
+    <span id="s-food">0</span> еды собрано &middot;
+    <span id="s-home">0</span> вернулись
+  </div>
+
+  <p class="ant-hint">Кликните по полю, чтобы добавить еду. Shift+клик — стена.</p>
+</div>
+
+<style>
+#canvas { width: 100%; background: #0a0a0f; border: 1px solid #222; cursor: crosshair; }
+.lab-controls { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 0.5rem 0; }
+.control-group { font-family: monospace; font-size: 0.8rem; color: #6a6a7a; }
+.control-group label { display: block; margin-bottom: 0.2rem; }
+.control-group span { color: #7b8cde; }
+.control-group input[type="range"] { width: 130px; }
+.ant-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+.preset-buttons, .action-buttons { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.preset-btn {
+  background: #111; color: #6a6a7a; border: 1px solid #222; padding: 0.3rem 0.7rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+}
+.preset-btn:hover { border-color: #7b8cde; color: #7b8cde; }
+.preset-btn.active { border-color: #7b8cde; color: #7b8cde; background: #141420; }
+.action-btn {
+  background: #111; color: #7b8cde; border: 1px solid #7b8cde; padding: 0.3rem 1rem;
+  font-family: monospace; font-size: 0.8rem; cursor: pointer;
+}
+.action-btn:hover { background: #141420; }
+.ant-stats { font-family: monospace; font-size: 0.8rem; color: #6a6a7a; text-align: center; }
+.ant-stats span { color: #7b8cde; }
+.ant-hint { font-family: monospace; font-size: 0.75rem; color: #444; text-align: center; margin-top: 0.3rem; }
+</style>
+
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Grid
+  const CELL = 6;
+  let COLS, ROWS;
+  let grid; // 0=empty, 1=wall, 2=food, 3=home
+
+  // Pheromone layers
+  let phHome; // pheromone to home
+  let phFood; // pheromone to food
+
+  // Ants
+  let ants = [];
+  let running = false;
+  let animId = null;
+  let stepCount = 0;
+  let foodCollected = 0;
+  let homeReturns = 0;
+
+  const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+  function getParams() {
+    return {
+      numAnts: +document.getElementById('r-ants').value,
+      evapRate: +document.getElementById('r-evap').value / 100,
+      deposit: +document.getElementById('r-deposit').value,
+      speed: +document.getElementById('r-speed').value
+    };
+  }
+
+  // Sync labels
+  ['r-ants','r-evap','r-deposit','r-speed'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      document.getElementById('v-ants').textContent = document.getElementById('r-ants').value;
+      document.getElementById('v-evap').textContent = document.getElementById('r-evap').value;
+      document.getElementById('v-deposit').textContent = document.getElementById('r-deposit').value;
+      document.getElementById('v-speed').textContent = document.getElementById('r-speed').value;
+    });
+  });
+
+  function initGrid() {
+    COLS = Math.floor(canvas.width / CELL);
+    ROWS = Math.floor(canvas.height / CELL);
+    grid = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+    phHome = Array.from({length: ROWS}, () => new Float32Array(COLS));
+    phFood = Array.from({length: ROWS}, () => new Float32Array(COLS));
+  }
+
+  function setHome(r, c, radius) {
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && dr*dr+dc*dc <= radius*radius) {
+          grid[nr][nc] = 3;
+        }
+      }
+    }
+  }
+
+  function setFood(r, c, radius) {
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && dr*dr+dc*dc <= radius*radius) {
+          if (grid[nr][nc] === 0) grid[nr][nc] = 2;
+        }
+      }
+    }
+  }
+
+  function setWall(r, c, radius) {
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+          if (grid[nr][nc] === 0) grid[nr][nc] = 1;
+        }
+      }
+    }
+  }
+
+  // --- Presets ---
+  function preset_simple() {
+    initGrid();
+    const hr = Math.floor(ROWS / 2), hc = Math.floor(COLS * 0.2);
+    setHome(hr, hc, 3);
+    setFood(Math.floor(ROWS / 2), Math.floor(COLS * 0.8), 5);
+  }
+
+  function preset_two() {
+    initGrid();
+    setHome(Math.floor(ROWS / 2), Math.floor(COLS / 2), 3);
+    setFood(Math.floor(ROWS * 0.2), Math.floor(COLS * 0.2), 4);
+    setFood(Math.floor(ROWS * 0.8), Math.floor(COLS * 0.8), 4);
+  }
+
+  function preset_obstacle() {
+    initGrid();
+    setHome(Math.floor(ROWS / 2), Math.floor(COLS * 0.15), 3);
+    setFood(Math.floor(ROWS / 2), Math.floor(COLS * 0.85), 5);
+    // Wall with gap
+    const wc = Math.floor(COLS / 2);
+    for (let r = 0; r < ROWS; r++) {
+      if (Math.abs(r - ROWS * 0.3) > 4 && Math.abs(r - ROWS * 0.7) > 4) {
+        grid[r][wc] = 1;
+        if (wc + 1 < COLS) grid[r][wc + 1] = 1;
+      }
+    }
+  }
+
+  function preset_maze() {
+    initGrid();
+    setHome(Math.floor(ROWS * 0.1), Math.floor(COLS * 0.1), 3);
+    setFood(Math.floor(ROWS * 0.9), Math.floor(COLS * 0.9), 5);
+    // Simple maze walls
+    const walls = [
+      [0.3, 0, 0.3, 0.7],
+      [0.6, 0.3, 0.6, 1],
+      [0.15, 0.45, 0.85, 0.45],
+    ];
+    walls.forEach(([r1f, c1f, r2f, c2f]) => {
+      const r1 = Math.floor(r1f * ROWS), c1 = Math.floor(c1f * COLS);
+      const r2 = Math.floor(r2f * ROWS), c2 = Math.floor(c2f * COLS);
+      const steps = Math.max(Math.abs(r2-r1), Math.abs(c2-c1));
+      for (let i = 0; i <= steps; i++) {
+        const r = Math.floor(r1 + (r2-r1)*i/steps);
+        const c = Math.floor(c1 + (c2-c1)*i/steps);
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+          grid[r][c] = 1;
+          if (r+1 < ROWS) grid[r+1][c] = 1;
+        }
+      }
+    });
+  }
+
+  // --- Ant ---
+  function createAnt(r, c) {
+    return {
+      r, c,
+      hasFood: false,
+      dir: Math.floor(Math.random() * 8) // direction index
+    };
+  }
+
+  function spawnAnts(n) {
+    ants = [];
+    // Find home cells
+    const homeCells = [];
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        if (grid[r][c] === 3) homeCells.push([r, c]);
+
+    if (homeCells.length === 0) return;
+    for (let i = 0; i < n; i++) {
+      const [hr, hc] = homeCells[i % homeCells.length];
+      ants.push(createAnt(hr, hc));
+    }
+  }
+
+  function moveAnt(ant) {
+    const { deposit } = getParams();
+
+    // Deposit pheromone
+    if (ant.hasFood) {
+      phFood[ant.r][ant.c] += deposit;
+    } else {
+      phHome[ant.r][ant.c] += deposit;
+    }
+
+    // Check current cell
+    if (ant.hasFood && grid[ant.r][ant.c] === 3) {
+      ant.hasFood = false;
+      homeReturns++;
+      ant.dir = (ant.dir + 4) % 8; // turn around
+    }
+    if (!ant.hasFood && grid[ant.r][ant.c] === 2) {
+      ant.hasFood = true;
+      foodCollected++;
+      // Remove food with some probability
+      if (Math.random() < 0.02) grid[ant.r][ant.c] = 0;
+      ant.dir = (ant.dir + 4) % 8;
+    }
+
+    // Choose next cell — biased by pheromone
+    const ph = ant.hasFood ? phHome : phFood;
+    const candidates = [];
+    let totalWeight = 0;
+
+    // Check 5 directions: forward, forward-left, forward-right, left, right
+    const offsets = [0, -1, 1, -2, 2];
+    for (const off of offsets) {
+      const di = (ant.dir + off + 8) % 8;
+      const [dr, dc] = DIRS[di];
+      const nr = ant.r + dr, nc = ant.c + dc;
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      if (grid[nr][nc] === 1) continue; // wall
+
+      const pheromone = ph[nr][nc];
+      const weight = 1 + pheromone * pheromone * 0.01;
+      // Bonus for forward direction
+      const dirBonus = off === 0 ? 2 : (Math.abs(off) === 1 ? 1.2 : 0.5);
+      const w = weight * dirBonus;
+      candidates.push({ di, nr, nc, w });
+      totalWeight += w;
+    }
+
+    if (candidates.length === 0) {
+      // Stuck — random direction
+      ant.dir = Math.floor(Math.random() * 8);
+      return;
+    }
+
+    // Random wander (5% chance)
+    if (Math.random() < 0.05) {
+      const c = candidates[Math.floor(Math.random() * candidates.length)];
+      ant.r = c.nr;
+      ant.c = c.nc;
+      ant.dir = c.di;
+      return;
+    }
+
+    // Weighted random choice
+    let pick = Math.random() * totalWeight;
+    for (const c of candidates) {
+      pick -= c.w;
+      if (pick <= 0) {
+        ant.r = c.nr;
+        ant.c = c.nc;
+        ant.dir = c.di;
+        return;
+      }
+    }
+    // Fallback
+    const last = candidates[candidates.length - 1];
+    ant.r = last.nr;
+    ant.c = last.nc;
+    ant.dir = last.di;
+  }
+
+  function evaporate() {
+    const { evapRate } = getParams();
+    const keep = 1 - evapRate;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        phHome[r][c] *= keep;
+        phFood[r][c] *= keep;
+        if (phHome[r][c] < 0.01) phHome[r][c] = 0;
+        if (phFood[r][c] < 0.01) phFood[r][c] = 0;
+      }
+    }
+  }
+
+  // --- Drawing ---
+  function draw() {
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Pheromones
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const ph = phFood[r][c];
+        const pp = phHome[r][c];
+        if (ph > 0.5 || pp > 0.5) {
+          const aFood = Math.min(1, ph / 80);
+          const aHome = Math.min(1, pp / 80);
+          // Food pheromone = green, Home pheromone = blue
+          if (aFood > aHome) {
+            ctx.fillStyle = `rgba(93, 230, 160, ${aFood * 0.5})`;
+          } else {
+            ctx.fillStyle = `rgba(123, 140, 222, ${aHome * 0.5})`;
+          }
+          ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+        }
+      }
+    }
+
+    // Grid objects
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const v = grid[r][c];
+        if (v === 1) { // wall
+          ctx.fillStyle = '#333';
+          ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+        } else if (v === 2) { // food
+          ctx.fillStyle = '#5de6a0';
+          ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+        } else if (v === 3) { // home
+          ctx.fillStyle = '#de7b7b';
+          ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+        }
+      }
+    }
+
+    // Ants
+    for (const ant of ants) {
+      ctx.fillStyle = ant.hasFood ? '#e6d85d' : '#ccc';
+      ctx.fillRect(ant.c * CELL + 1, ant.r * CELL + 1, CELL - 2, CELL - 2);
+    }
+
+    // Stats
+    document.getElementById('s-step').textContent = stepCount;
+    document.getElementById('s-food').textContent = foodCollected;
+    document.getElementById('s-home').textContent = homeReturns;
+  }
+
+  function step() {
+    if (!running) return;
+    const { speed } = getParams();
+    for (let s = 0; s < speed; s++) {
+      for (const ant of ants) moveAnt(ant);
+      evaporate();
+      stepCount++;
+    }
+    draw();
+    animId = requestAnimationFrame(step);
+  }
+
+  function start() {
+    if (ants.length === 0) spawnAnts(getParams().numAnts);
+    running = true;
+    document.getElementById('btn-run').textContent = 'пауза';
+    step();
+  }
+
+  function pause() {
+    running = false;
+    cancelAnimationFrame(animId);
+    document.getElementById('btn-run').textContent = 'старт';
+  }
+
+  function reset(presetFn) {
+    pause();
+    presetFn();
+    stepCount = 0;
+    foodCollected = 0;
+    homeReturns = 0;
+    ants = [];
+    spawnAnts(getParams().numAnts);
+    draw();
+  }
+
+  // --- Events ---
+  document.getElementById('btn-run').addEventListener('click', () => {
+    if (running) pause(); else start();
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    const active = document.querySelector('.preset-btn.active');
+    const name = active ? active.dataset.preset : 'simple';
+    const presets = { simple: preset_simple, two: preset_two, obstacle: preset_obstacle, maze: preset_maze };
+    reset(presets[name] || preset_simple);
+  });
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const presets = { simple: preset_simple, two: preset_two, obstacle: preset_obstacle, maze: preset_maze };
+      reset(presets[btn.dataset.preset] || preset_simple);
+    });
+  });
+
+  // Click to add food or wall
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    const c = Math.floor((e.clientX - rect.left) * sx / CELL);
+    const r = Math.floor((e.clientY - rect.top) * sy / CELL);
+    if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+      if (e.shiftKey) {
+        setWall(r, c, 2);
+      } else {
+        setFood(r, c, 3);
+      }
+      draw();
+    }
+  });
+
+  // Resize
+  function resize() {
+    const w = Math.min(600, Math.floor(canvas.parentElement.getBoundingClientRect().width));
+    canvas.width = w;
+    canvas.height = w;
+    // Re-init on resize would lose state, so just redraw if possible
+    if (!grid) {
+      preset_simple();
+      spawnAnts(getParams().numAnts);
+    } else {
+      // Recalculate COLS/ROWS only on init
+    }
+    draw();
+  }
+
+  // Init
+  initGrid();
+  preset_simple();
+  spawnAnts(getParams().numAnts);
+  resize();
+  window.addEventListener('resize', () => {
+    if (!running) resize();
+  });
+})();
+</script>

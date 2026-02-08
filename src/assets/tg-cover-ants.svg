@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0a0a0f"/>
+  <!-- Home -->
+  <rect x="130" y="170" width="20" height="20" fill="#de7b7b" opacity="0.6"/>
+  <!-- Food -->
+  <rect x="620" y="170" width="20" height="20" fill="#5de6a0" opacity="0.6"/>
+  <!-- Pheromone trail (getting stronger) -->
+  <g stroke="#5de6a0" fill="none" stroke-width="2">
+    <path d="M 150 180 Q 200 160, 250 175 Q 300 190, 350 170 Q 400 150, 450 175 Q 500 200, 550 172 Q 580 160, 620 180" opacity="0.2"/>
+    <path d="M 150 180 Q 200 170, 250 178 Q 300 185, 350 175 Q 400 165, 450 178 Q 500 190, 550 175 Q 580 168, 620 180" opacity="0.35" stroke-width="3"/>
+  </g>
+  <!-- Scattered ant dots -->
+  <g fill="#ccc">
+    <rect x="195" y="165" width="3" height="3" opacity="0.5"/>
+    <rect x="270" y="180" width="3" height="3" opacity="0.5"/>
+    <rect x="345" y="168" width="3" height="3" opacity="0.5"/>
+    <rect x="410" y="172" width="3" height="3" opacity="0.5"/>
+    <rect x="480" y="185" width="3" height="3" opacity="0.5"/>
+    <rect x="555" y="170" width="3" height="3" opacity="0.5"/>
+    <!-- Some wandering ants -->
+    <rect x="220" y="140" width="3" height="3" opacity="0.25"/>
+    <rect x="380" y="200" width="3" height="3" opacity="0.25"/>
+    <rect x="520" y="145" width="3" height="3" opacity="0.25"/>
+  </g>
+  <!-- Ants with food (yellow) returning -->
+  <g fill="#e6d85d">
+    <rect x="500" y="177" width="3" height="3" opacity="0.6"/>
+    <rect x="350" y="174" width="3" height="3" opacity="0.6"/>
+  </g>
+  <!-- Title -->
+  <text x="400" y="270" text-anchor="middle" font-family="monospace" font-size="22" fill="#7b8cde">муравьиная колония</text>
+  <text x="400" y="298" text-anchor="middle" font-family="monospace" font-size="11" fill="#6a6a7a">коллективный интеллект</text>
+  <text x="400" y="370" text-anchor="middle" font-family="monospace" font-size="14" fill="#6a6a7a">signal/lab</text>
+</svg>
